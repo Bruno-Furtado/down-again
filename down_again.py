@@ -70,7 +70,7 @@ DEFAULTS = {
     "ntfy_topic": "",              # gerado na primeira execução; "" desativa
     "notify_min_seconds": 0,       # só avisa quedas com pelo menos N segundos
     "notify_monitor_gap_minutes": 5,
-    "speedtest_minutes": 30,       # teste de velocidade a cada N minutos; 0 desliga
+    "speedtest_minutes": 240,      # teste de velocidade a cada N minutos (240 = 6 por dia); 0 desliga
     "speedtest_seconds": 5,        # duração de cada sentido (download e upload)
     "plan_down_mbps": 0,           # plano contratado, para comparar (0 = não informado)
     "plan_up_mbps": 0,

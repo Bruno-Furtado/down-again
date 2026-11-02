@@ -78,16 +78,16 @@ def simulate(app, seed=7):
 
 
 def simulate_speedtests(app, seed=3):
-    """Uma semana de testes a cada 30 min: ~600/300 Mbps, mais lento à noite, alguns bem abaixo do plano."""
+    """Uma semana de testes a cada 4 horas: ~600/300 Mbps, mais lento à noite, alguns bem abaixo do plano."""
     rnd = random.Random(seed)
     db = app.connect()
     end, t = time.time(), time.time() - 7 * DAY
     while t < end - 600:
         evening = 19 <= time.localtime(t).tm_hour <= 23
-        factor = rnd.uniform(0.15, 0.35) if rnd.random() < 0.05 else rnd.uniform(0.6, 0.85) if evening else rnd.uniform(0.85, 1.02)
+        factor = rnd.uniform(0.15, 0.35) if rnd.random() < 0.1 else rnd.uniform(0.6, 0.85) if evening else rnd.uniform(0.85, 1.02)
         db.execute("INSERT INTO speedtests(ts, down_mbps, up_mbps, ping_ms, jitter_ms, error, manual) VALUES(?,?,?,?,?,?,0)",
                    (t, 600 * factor, 300 * min(1.0, factor + rnd.uniform(-0.05, 0.08)), rnd.gauss(9, 2), abs(rnd.gauss(1.5, 0.8)), None))
-        t += 1800 + rnd.uniform(-20, 20)
+        t += 4 * 3600 + rnd.uniform(-20, 20)
     db.commit()
     db.close()
 
