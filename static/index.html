@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080c15">
+<title>down-again</title>
+<link rel="icon" id="favicon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body data-state="idle">
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg></span>
+      down-again
+    </div>
+    <div class="top-r">
+      <span class="chip" id="netchip" data-tip="Rede usada pelo monitor">
+        <span id="neticon"></span><span><b id="netname">…</b> <span class="net-sub" id="netsub"></span></span>
+      </span>
+      <button class="icon-btn" id="refresh" title="Atualizar agora" aria-label="Atualizar agora">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
+      <div class="theme-wrap">
+        <button class="icon-btn" id="theme" aria-label="Tema" aria-haspopup="menu" aria-expanded="false"></button>
+        <div class="menu" id="theme-menu" role="menu"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="card status is-idle" id="status">
+      <div class="ring"><i></i></div>
+      <div>
+        <div class="st-title" id="st-title">Conectando…</div>
+        <div class="st-lbl" id="st-lbl"></div>
+        <div class="big" id="st-big"></div>
+        <div class="st-sub" id="st-sub">Buscando o status do monitor</div>
+      </div>
+    </div>
+
+    <div class="card glance" id="glance">
+      <div class="gl-head">
+        <span class="gl-ic" id="gl-ic"></span>
+        <div><div class="gl-title" id="gl-title">Carregando…</div><div class="gl-sub" id="gl-sub">&nbsp;</div></div>
+      </div>
+      <div class="gl-tiles" id="gl-tiles"></div>
+    </div>
+
+    <div class="card path-card">
+      <h3>Caminho da conexão agora</h3>
+      <div class="path">
+        <div class="node idle" id="n-mac"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span><b id="n-mac-label">Este Mac</b><small>—</small></div>
+        <div class="link idle" id="l-1"></div>
+        <div class="node idle" id="n-gw"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a5.5 5.5 0 0 1 8 0M5.5 6.5a9 9 0 0 1 13 0"/></svg></span><b>Roteador</b><small>—</small></div>
+        <div class="link idle" id="l-2"></div>
+        <div class="node idle" id="n-net"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b>Internet</b><small>—</small></div>
+        <div class="link idle" id="l-3"></div>
+        <div class="node idle" id="n-web"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><b>Sites</b><small>—</small></div>
+      </div>
+      <p class="path-note" id="path-note"></p>
+    </div>
+  </div>
+
+  <section>
+    <div class="sec-h">
+      <div><h2>Latência ao vivo</h2><p>Faixas vermelhas são testes que falharam.</p></div>
+      <div class="seg" id="series-seg">
+        <button data-v="1">1h</button><button data-v="6">6h</button><button data-v="24">24h</button><button data-v="168">7d</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="legend">
+        <span><i style="--c:var(--accent)"></i>internet (média)</span>
+        <span><i style="--c:var(--ok)"></i>roteador</span>
+        <span><i class="sq" style="--c:var(--down);opacity:.5"></i>falhas</span>
+      </div>
+      <div class="chart" id="chart"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h">
+      <div><h2>Resumo do período</h2><p id="period-desc">&nbsp;</p></div>
+      <div>
+        <div class="seg" id="period-seg">
+          <button data-v="today">Hoje</button><button data-v="7d">7 dias</button><button data-v="30d">30 dias</button><button data-v="custom">Período…</button>
+        </div>
+        <div class="custom" id="custom">
+          <input type="date" id="d-from"> <span class="muted">até</span> <input type="date" id="d-to">
+          <button class="btn" id="d-apply">Aplicar</button>
+        </div>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="card gauge">
+        <svg viewBox="0 0 170 170"><circle class="g-bg" cx="85" cy="85" r="72"/><circle class="g-fg" id="g-fg" cx="85" cy="85" r="72" stroke-dasharray="0 999"/></svg>
+        <div class="gauge-in"><b id="g-val">—</b><span>disponibilidade</span></div>
+        <p id="g-sub">&nbsp;</p>
+      </div>
+      <div class="kgrid" id="kgrid"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h">
+      <div><h2>Linha do tempo</h2><p>Um dia por linha. Toque numa queda para ver detalhes.</p></div>
+      <div class="legend">
+        <span><i class="sq" style="--c:var(--mon)"></i>online</span>
+        <span><i class="sq" style="--c:var(--isp)"></i>provedor</span>
+        <span><i class="sq" style="--c:var(--local)"></i>rede local</span>
+        <span><i class="sq" style="--c:var(--dns)"></i>DNS</span>
+        <span><i class="sq" style="--c:var(--unmon)"></i>não monitorado</span>
+      </div>
+    </div>
+    <div class="card" id="timeline"></div>
+  </section>
+
+  <section class="grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)" id="row2">
+    <div>
+      <div class="sec-h">
+        <div><h2>Em que horário cai mais</h2></div>
+        <div class="seg" id="hour-seg"><button data-v="count">Quedas</button><button data-v="time">Tempo</button></div>
+      </div>
+      <div class="card" id="hours"></div>
+    </div>
+    <div>
+      <div class="sec-h"><div><h2>De quem é a culpa</h2></div></div>
+      <div class="card" id="causes"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h">
+      <div><h2>Todas as quedas</h2><p id="list-desc">&nbsp;</p></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="chips" id="chips"></div>
+        <select id="sort"><option value="recent">Mais recentes</option><option value="long">Mais longas</option></select>
+      </div>
+    </div>
+    <div class="card"><div class="olist" id="olist"></div></div>
+  </section>
+
+  <section class="actions">
+    <div class="card">
+      <h2 style="margin:0;font-size:17px">Relatório para o provedor</h2>
+      <p>Para imprimir ou salvar em PDF, com todas as quedas do período.</p>
+      <div class="btns">
+        <a class="btn primary" id="lnk-report" href="/relatorio"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg>Abrir relatório</a>
+        <a class="btn" id="lnk-csv" href="/api/outages.csv"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>Baixar CSV</a>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin:0;font-size:17px">Avisos no celular</h2>
+      <p>Quando a internet volta, você recebe “caiu às X, voltou às Y”.</p>
+      <ol class="steps">
+        <li>Instale o app <b>ntfy</b> (App Store / Google Play).</li>
+        <li>Toque em <b>+</b> e assine o tópico abaixo (servidor <span id="ntfy-srv">ntfy.sh</span>).</li>
+        <li>Toque em “Enviar teste”.</li>
+      </ol>
+      <div class="topic"><span id="topic">…</span><button class="btn" id="copy" style="padding:5px 10px;font-size:12.5px">Copiar</button></div>
+      <div class="btns" style="align-items:center"><button class="btn" id="test">Enviar teste</button><span class="res" id="test-res"></span></div>
+    </div>
+  </section>
+
+  <footer id="foot">down-again</footer>
+</div>
+
+<script src="/common.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

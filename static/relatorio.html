@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório de disponibilidade</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { background: #e9ecf3; }
+  .bar { position: sticky; top: 0; z-index: 5; background: rgba(233, 236, 243, .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .bar .in { max-width: 860px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar .in a { margin-right: auto; font-weight: 600; }
+  .page { max-width: 860px; margin: 22px auto 60px; background: #fff; color: #111827; padding: 48px 56px; border-radius: 6px; box-shadow: 0 20px 50px -25px rgba(0, 0, 0, .35); font-size: 13.5px; line-height: 1.5; }
+  h1 { font-size: 22px; letter-spacing: -.02em; margin: 0 0 4px; }
+  .lead { color: #4b5563; margin: 0 0 22px; }
+  h2 { font-size: 14.5px; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #111827; text-transform: uppercase; letter-spacing: .05em; }
+  .ident { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; }
+  .ident label { display: grid; grid-template-columns: 128px 1fr; align-items: baseline; gap: 8px; font-size: 12.5px; color: #4b5563; }
+  .ident input { border: 0; border-bottom: 1px dotted #9ca3af; font: inherit; font-size: 13.5px; color: #111827; padding: 3px 0; background: transparent; min-width: 0; }
+  .ident input:focus { outline: none; border-bottom-color: var(--accent); }
+  .ident .wide { grid-column: 1 / -1; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; font-weight: 600; background: #f9fafb; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .sum td:first-child { color: #4b5563; width: 46%; }
+  .sum td:last-child { font-weight: 600; }
+  .hl { background: #fef3f2; border-left: 4px solid var(--isp); padding: 12px 16px; margin: 16px 0 4px; border-radius: 0 6px 6px 0; }
+  .meth { color: #374151; }
+  .meth li { margin-bottom: 4px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .tl-row { grid-template-columns: 70px minmax(0, 1fr) 80px; }
+  .tl-track { height: 16px; border-radius: 4px; }
+  .hbars { height: 130px; }
+  .foot { margin-top: 30px; padding-top: 10px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 11.5px; }
+  .muted2 { color: #6b7280; }
+  .legend { margin: 0 0 10px; }
+  @media (max-width: 700px) { .page { padding: 26px 18px; border-radius: 0; margin: 0; } .ident { grid-template-columns: 1fr; } .ident label { grid-template-columns: 110px 1fr; } }
+  @media print {
+    @page { size: A4; margin: 14mm 12mm; }
+    body { background: #fff; }
+    .bar { display: none; }
+    .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { break-after: avoid; }
+    tr, .tl-row { break-inside: avoid; }
+    .ident input { border-bottom-color: transparent; }
+  }
+</style>
+</head>
+<body>
+<div class="bar"><div class="in">
+  <a href="/">← Painel</a>
+  <input type="date" id="d-from"> <span class="muted">até</span> <input type="date" id="d-to">
+  <button class="btn" id="apply">Atualizar</button>
+  <a class="btn" id="csv" href="#">CSV</a>
+  <button class="btn primary" id="print">Imprimir / PDF</button>
+</div></div>
+
+<div class="page">
+  <h1>Relatório de disponibilidade da conexão de internet</h1>
+  <p class="lead" id="lead">Carregando…</p>
+
+  <h2>Identificação</h2>
+  <div class="ident" id="ident">
+    <label>Titular <input data-k="titular"></label>
+    <label>Provedor <input data-k="provedor"></label>
+    <label class="wide">Endereço <input data-k="endereco"></label>
+    <label>Plano contratado <input data-k="plano"></label>
+    <label>Código do cliente <input data-k="cliente"></label>
+    <label class="wide">Protocolos anteriores <input data-k="protocolos"></label>
+  </div>
+  <p class="muted2" style="font-size:11.5px;margin:6px 0 0">Campos editáveis; ficam salvos neste navegador.</p>
+
+  <h2>Resumo</h2>
+  <div id="summary"></div>
+
+  <h2>Metodologia</h2>
+  <ol class="meth" id="meth"></ol>
+
+  <h2>Linha do tempo</h2>
+  <div class="legend">
+    <span><i class="sq" style="--c:var(--mon)"></i>com internet</span>
+    <span><i class="sq" style="--c:var(--isp)"></i>queda — provedor</span>
+    <span><i class="sq" style="--c:var(--local)"></i>queda — rede local</span>
+    <span><i class="sq" style="--c:var(--dns)"></i>queda — DNS</span>
+    <span><i class="sq" style="--c:var(--unknown)"></i>indeterminada</span>
+    <span><i class="sq" style="--c:var(--unmon)"></i>não monitorado</span>
+  </div>
+  <div id="timeline"></div>
+
+  <h2>Quedas por dia</h2>
+  <div id="days"></div>
+
+  <h2>Quedas por hora do dia</h2>
+  <div id="hours"></div>
+
+  <h2>Lista completa de quedas</h2>
+  <div id="list"></div>
+
+  <h2>Períodos não monitorados</h2>
+  <div id="unmon"></div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script src="/common.js"></script>
+<script src="/report.js"></script>
+</body>
+</html>

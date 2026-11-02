@@ -1,0 +1,6 @@
+# dados locais: banco, log e config.json (contém o tópico do ntfy)
+dados/
+__pycache__/
+*.pyc
+.DS_Store
+.claude/

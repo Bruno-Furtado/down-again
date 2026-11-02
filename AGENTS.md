@@ -1,0 +1,122 @@
+# AGENTS.md
+
+Guide for AI coding agents (Codex, Claude Code, Cursor, Copilot…) and human contributors.
+`CLAUDE.md` imports this file, so keep every shared rule here.
+
+## What this is
+
+down-again is a home internet outage monitor that runs on an always-on computer. One Python process does two jobs:
+
+1. **Monitor thread** (`Monitor` in `down_again.py`): every `interval` seconds it pings the router, opens a TCP connection to public IPs and fetches a URL by name. It classifies the result (`ok`, `isp`, `local`, `dns`, `unknown`) and writes it to SQLite.
+2. **HTTP server** (`Handler`): serves the dashboard (`static/`) and a small JSON API on the LAN.
+
+When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows.
+
+## Platforms
+
+| Platform | Status |
+|---|---|
+| macOS 11+ | Tested on real hardware. The reference platform. |
+| Linux | **Experimental, never run on a real machine.** |
+| Windows 10/11 | **Experimental, never run on a real machine.** |
+
+Everything except a small platform layer is shared. The layer lives in the "rede: o que depende do sistema" section of `down_again.py`, plus the install/uninstall functions at the end:
+
+| Concern | macOS | Linux | Windows |
+|---|---|---|---|
+| Default route | `route -n get default` → `parse_route_macos` | `/proc/net/route` → `parse_route_linux` | `route print -4 0.0.0.0` → `parse_route_windows` |
+| Ping | `/sbin/ping -t` | `ping -W` | `ping -n 1 -w <ms>` |
+| Ping output | `parse_ping_ms` (shared) | same | same (any UI language) |
+| Wi-Fi | `airport`, `networksetup`, `ipconfig` | `iw dev X link` → `parse_iw_link`, `nmcli` → `parse_nmcli` | `netsh wlan show interfaces` → `parse_netsh_wlan` |
+| Background | LaunchAgent + `caffeinate` | systemd user unit | Task Scheduler + `pythonw` |
+
+Rules for this layer:
+- Pick the platform with `IS_MAC`, `IS_LINUX` and `IS_WIN`. Never call `sys.platform` directly elsewhere.
+- Keep command output parsing in **pure `parse_*` functions** (text in, data out). Add a test in `tests/test_parsers.py` with a realistic sample for every new parser or format variant.
+- Windows output is localized. Parse by structure and numbers, not by English words. If you must match labels, accept the common translations.
+- Missing tools must degrade gracefully. `run_cmd` returns `(-1, "")` instead of raising, and Wi-Fi details are optional.
+- Don't describe Linux or Windows as tested until someone confirms it on real hardware. Keep the "experimental" wording in the READMEs and in the CLI warnings.
+
+## Hard constraints
+
+These are not style preferences. Breaking any of them breaks real installs.
+
+- **Python 3.8 compatible.** The target is the Command Line Tools Python on macOS 11. Don't use `match`, `str.removeprefix`, `dict | dict`, `list[int]`-style generics, `zoneinfo`, or `functools.cache`. Check with:
+  `python3 -c "import ast; ast.parse(open('down_again.py').read(), feature_version=(3, 8))"` (repeat for `tools/demo.py`).
+- **Standard library only.** No pip packages, no `requirements.txt`, no build step.
+- **The frontend must work with the internet down.** Vanilla JS and CSS only: no frameworks, no CDNs, no web fonts, no external images.
+- **CSP is strict** (`script-src 'self'`). No inline `<script>` blocks and no inline event handlers (`onclick=`). Put JS in `static/*.js`. Inline `style` attributes are allowed.
+- **Static files are allow-listed.** A new file in `static/` must be added to `STATIC_FILES` in `down_again.py`, or it returns 404.
+- **Never commit `dados/`.** It holds `config.json` (with the ntfy topic, which works like a password), the database and the log.
+
+## Security rules
+
+- Escape every value that comes from the system, the database or config before it reaches `innerHTML`. Use `NM.esc()` from `static/common.js`. Wi-Fi SSIDs are attacker-controlled strings.
+- Tooltips: `data-tip` is rendered with `innerHTML`.
+  - Written in an HTML template (`data-tip="${esc(html)}"`): escape the inner values and then the whole attribute.
+  - Set via `el.dataset.tip = …`: escape only the inner values.
+- Keep these protections in `Handler`:
+  - the `Host` allow-list (`host_allowed` plus `own_names`, which blocks DNS rebinding);
+  - the `X-Down-Again: 1` header and the cooldown on `POST /api/test-notify` (CSRF and abuse);
+  - `SECURITY_HEADERS`;
+  - the `MAX_RANGE_DAYS` limit.
+- Subprocesses always take argument lists. Never use `shell=True`, and never build commands from request data.
+- Values written into the LaunchAgent plist and the systemd unit must be escaped (`xml_escape`, `systemd_quote`).
+- Don't log or return secrets beyond what the dashboard needs.
+
+## Layout
+
+```
+down_again.py         monitor, notifier, statistics (summarize/glance/timeseries), HTTP handler, CLI
+static/index.html     dashboard markup           static/app.js     dashboard logic
+static/relatorio.html printable ISP report       static/report.js  report logic
+static/common.js      shared helpers (NM.*): formatting, timeline, hour bars, tooltips, storage
+static/style.css      all styles; light/dark tokens on :root
+tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Windows
+tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
+tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
+tools/cover.html      template for docs/cover.png
+docs/                 README images
+```
+
+SQLite tables (in `SCHEMA`):
+- `samples`: one row per check (`ts`, `state`, `gw_ms`, `net_ms`, `http_ok`, `rssi`), pruned after `keep_samples_days`.
+- `outages`: one row per outage (`start_ts`, `end_ts`, `cause`, `ended_by`, `network`). `end_ts` is NULL while the outage is ongoing.
+- `gaps` and `sessions`: unmonitored time vs. monitored time.
+- `notifications`: outgoing queue, kept until it is sent.
+
+The project used to be called `netmon`. `load_config` renames an old `dados/netmon.db`, and the macOS install removes the old `com.netmon.monitor` LaunchAgent. Keep both until old installs are gone.
+
+## Commands
+
+```bash
+python3 down_again.py check              # one diagnosis, prints and exits
+python3 down_again.py                    # monitor + dashboard on :8000 (uses ./dados)
+python3 -m unittest discover -s tests    # parser and security unit tests
+python3 tools/demo.py                    # demo dashboard on :8766 with simulated data (temp dir, alerts off)
+node tools/capture.mjs                   # regenerate docs/*.png and docs/demo.gif (demo must be running)
+```
+
+`DOWNAGAIN_DATA=/some/dir` moves the data folder. The demo uses this, so experiments never touch real data.
+
+## How to verify a change
+
+1. Run `python3 -m unittest discover -s tests` and the Python 3.8 syntax check above.
+2. Start `python3 tools/demo.py`. Open `http://localhost:8766` and `http://localhost:8766/relatorio`, check that the browser console has no errors (including CSP violations), and check the layout at about 375 px wide and on desktop, in both themes.
+3. If you touched the server, check the security behavior. Expected status codes:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: evil.com' localhost:8766/api/config        # 403
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8766/api/test-notify               # 403
+   curl -s -o /dev/null -w '%{http_code}\n' --path-as-is localhost:8766/../down_again.py         # 404
+   curl -s -o /dev/null -w '%{http_code}\n' 'localhost:8766/api/summary?from=2020-01-01&to=2026-01-01'  # 400
+   ```
+4. If you touched the platform layer, add or update samples in `tests/test_parsers.py`. If you have access to the real OS, also run `python3 down_again.py check` there and say so in the PR.
+5. If the UI changed in a visible way, regenerate the images with `node tools/capture.mjs`.
+
+## Conventions
+
+- UI text, code comments and log messages are in **Brazilian Portuguese**. Match the surrounding code.
+- READMEs exist in three languages: `README.md` (English, primary), `README_pt-BR.md` and `README_zh-CN.md`. When you change behavior, config keys, the API or platform support, update all three.
+- New config keys go in `DEFAULTS` with a short comment, and in the configuration table of all three READMEs.
+- Keep `down_again.py` a single file. Add helpers near the code that uses them, in the existing section order: utilities → platform layer → probes → notifier → monitor → statistics → web server → commands.
+- Colors live as CSS variables on `:root`, with dark values under `prefers-color-scheme` and `[data-theme="dark"]`. Don't hard-code colors in JS. Use `var(--…)`.
