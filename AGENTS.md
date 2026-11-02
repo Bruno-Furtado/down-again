@@ -12,6 +12,8 @@ down-again is a home internet outage monitor that runs on an always-on computer.
 
 When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows.
 
+A third thread (`SpeedTester`) runs a speed test every `speedtest_minutes`, or on demand from `POST /api/speedtest`. It runs 6 parallel `curl` transfers to `speed.cloudflare.com`; curl, not Python, so it reaches 500+ Mbps on old Macs. It sets `Monitor.paused` while testing, because a saturated link must not be recorded as an outage. Results go to the `speedtests` table and the plan (`plan_down_mbps` / `plan_up_mbps`) can be saved from the dashboard (`POST /api/plan`). The demo replaces `run_speedtest` with fake numbers so it never uses the network.
+
 ## Platforms
 
 | Platform | Status |
@@ -89,6 +91,7 @@ static/style.css      all styles; light/dark tokens on :root
 tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Windows
 tests/test_i18n.py    translation parity (same keys and placeholders in every language)
 tests/test_static.py  every allow-listed static file exists; manifest and HTML only point to served files
+tests/test_speed.py   speed test parsing, ping/jitter, plan validation and period stats
 tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
 tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
 tools/cover.html      cover template (one per language via ?lang=)
@@ -101,6 +104,7 @@ SQLite tables (in `SCHEMA`):
 - `outages`: one row per outage (`start_ts`, `end_ts`, `cause`, `ended_by`, `network`). `end_ts` is NULL while the outage is ongoing.
 - `gaps` and `sessions`: unmonitored time vs. monitored time.
 - `notifications`: outgoing queue, kept until it is sent.
+- `speedtests`: one row per speed test (`down_mbps`, `up_mbps`, `ping_ms`, `jitter_ms`, `error`, `manual`), kept forever.
 
 The project used to be called `netmon`. `load_config` renames an old `dados/netmon.db`, and the macOS install removes the old `com.netmon.monitor` LaunchAgent. Keep both until old installs are gone.
 

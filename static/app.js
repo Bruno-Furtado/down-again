@@ -147,8 +147,11 @@ async function pollStatus() {
     const st = await NM.get("/api/status");
     S.offset = st.now - Date.now() / 1000;
     const changed = !S.st || S.st.state !== st.state || (S.st.outage && S.st.outage.start) !== (st.outage && st.outage.start);
+    const lastSpeed = (x) => (x && x.speed && x.speed.last ? x.speed.last.ts : null);
+    const newSpeed = S.st && lastSpeed(st) !== lastSpeed(S.st);
     S.st = st; S.failCount = 0;
-    renderPath(); renderNet();
+    renderPath(); renderNet(); renderSpeedVals();
+    if (newSpeed) loadSpeed();
     if (changed) { loadSummary(); loadSeries(); loadGlance(); }
   } catch (e) {
     if (++S.failCount >= 2) { S.st = null; renderPath(); }
@@ -275,6 +278,132 @@ function renderSeries() {
   ov.addEventListener("mouseleave", () => { box.classList.remove("hover"); tips.hide(); });
 }
 
+/* ---------- velocidade ---------- */
+const mbps = (v) => (v == null ? "—" : `${NM.num(v, v < 10 ? 1 : 0)} Mbps`);
+// "há X" com resolução de minutos: o cartão só é refeito quando o texto muda (poupa CPU)
+const mins = (sec) => (sec < 60 ? `< 1 ${t("unit.min")}` : sec < 3600 ? `${Math.round(sec / 60)} ${t("unit.min")}` : dur(Math.round(sec / 60) * 60));
+const planNow = () => ({ down: Number((S.cfg && S.cfg.plan_down_mbps) || 0), up: Number((S.cfg && S.cfg.plan_up_mbps) || 0) });
+
+async function loadSpeed() {
+  const r = currentRange();
+  try { S.speed = await NM.get(`/api/speedtests?from=${r.from}&to=${r.to}`); renderSpeedChart(); renderSpeedDesc(); } catch (e) { /* tenta no próximo ciclo */ }
+}
+
+function renderSpeedDesc() {
+  const d = S.speed, plan = planNow();
+  if (!d || !d.count) { $("#speed-desc").innerHTML = "&nbsp;"; return; }
+  $("#speed-desc").textContent = t("speed.avg", { down: mbps(d.down && d.down.avg), up: mbps(d.up && d.up.avg) }) +
+    (plan.down && d.below40 ? " · " + t("speed.below", { n: d.below40 }) : "");
+}
+
+function speedRow(label, value, plan, color) {
+  const pct = plan && value != null ? value / plan : null;
+  return `<div class="sp-row"><span class="sp-lbl">${label}</span><b>${value == null ? "—" : NM.num(value, value < 10 ? 1 : 0)}</b><small>Mbps</small>` +
+    (pct != null ? `<span class="sp-pct${pct < 0.4 ? " low" : ""}">${t("speed.ofPlan", { p: NM.pct(pct, 0) })}</span>` : "") + `</div>` +
+    `<div class="sp-bar"><i style="width:${pct != null ? Math.min(100, pct * 100) : value != null ? 100 : 0}%;--c:${color}"></i></div>`;
+}
+
+function renderSpeedVals() {
+  const sp = S.st && S.st.speed, plan = planNow(), now = nowS();
+  let html = "";
+  if (sp) {
+    const l = sp.last;
+    if (!l) html = `<p class="sp-meta">${t(sp.enabled ? "speed.none" : "speed.off")}</p>`;
+    else if (l.error) html = `<p class="sp-meta">${esc(t("speed.failedLast", { e: l.error }))}</p>`;
+    else {
+      html = speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)") +
+        `<p class="sp-meta">${t("speed.ping", { p: NM.ms(l.ping), j: NM.ms(l.jitter) })}</p>`;
+    }
+    const when = sp.running ? t("speed.running") : [l && t("speed.last", { d: mins(now - l.ts) }),
+      sp.enabled ? sp.next && t("speed.next", { d: mins(Math.max(0, sp.next - now)) }) : t("speed.off")].filter(Boolean).join(" · ");
+    html += `<p class="sp-meta">${esc(when)}</p>`;
+  }
+  if (html !== renderSpeedVals.html) { $("#speed-vals").innerHTML = html; renderSpeedVals.html = html; }
+  const busy = !!(sp && sp.running);
+  $("#speed-run").classList.toggle("busy", busy);
+  $("#speed-run").disabled = busy;
+}
+
+function renderSpeedChart() {
+  const box = $("#speed-chart"), d = S.speed;
+  if (!d) return;
+  const tests = d.tests.filter((x) => !x.error && x.down);
+  if (!tests.length) { box.innerHTML = `<div class="empty" style="height:100%;display:grid;place-items:center">${t("speed.empty")}</div>`; return; }
+  const W = box.clientWidth, H = box.clientHeight, L = 46, R = 8, T = 10, B = 22;
+  if (W < 120) return void setTimeout(renderSpeedChart, 300);
+  const plan = planNow(), t0 = tests[0].ts, t1 = tests[tests.length - 1].ts, span = Math.max(1, t1 - t0);
+  const X = (x) => (tests.length === 1 ? (L + W - R) / 2 : L + ((x - t0) / span) * (W - L - R));
+  const yMax = niceMax(Math.max(10, plan.down, ...tests.map((x) => Math.max(x.down || 0, x.up || 0))) * 1.08);
+  const Y = (v) => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
+  let g = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = (yMax / 4) * i, y = Y(v);
+    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 3.5}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const nT = Math.min(W < 500 ? 3 : 5, tests.length - 1);
+  for (let i = 0; i <= nT && tests.length > 1; i++) {
+    const x = t0 + (span / nT) * i;
+    g += `<text class="ax" x="${X(x)}" y="${H - 5}" text-anchor="${i === 0 ? "start" : i === nT ? "end" : "middle"}">${esc(span > 86400 ? NM.dayLabel(x) : NM.time(x, false))}</text>`;
+  }
+  if (plan.down) {
+    g += `<line class="sp-plan-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down)}" y2="${Y(plan.down)}"/>`;
+    g += `<line class="sp-40-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down * 0.4)}" y2="${Y(plan.down * 0.4)}"/>`;
+  }
+  const line = (key) => tests.filter((x) => x[key] != null).map((x, i) => `${i ? "L" : "M"}${X(x.ts).toFixed(1)} ${Y(x[key]).toFixed(1)}`).join("");
+  const dots = (key, cls) => tests.filter((x) => x[key] != null).map((x) => `<circle class="${cls}" cx="${X(x.ts).toFixed(1)}" cy="${Y(x[key]).toFixed(1)}" r="2.6"/>`).join("");
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<path class="l-up" d="${line("up")}"/><path class="l-avg" d="${line("down")}"/>${dots("up", "d-up")}${dots("down", "d-down")}
+    <line class="xh" id="sxh" y1="${T}" y2="${H - B}"/><rect id="sov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
+  const ov = box.querySelector("#sov"), xh = box.querySelector("#sxh");
+  const move = (cx, cy) => {
+    const at = t0 + ((cx - box.getBoundingClientRect().left - L) / (W - L - R)) * span;
+    let best = tests[0];
+    for (const x of tests) if (Math.abs(x.ts - at) < Math.abs(best.ts - at)) best = x;
+    xh.setAttribute("x1", X(best.ts)); xh.setAttribute("x2", X(best.ts));
+    box.classList.add("hover");
+    tips.show(cx, cy, t("speed.tip", { dt: esc(NM.dt(best.ts)), down: mbps(best.down), up: mbps(best.up), ping: NM.ms(best.ping) }));
+  };
+  ov.addEventListener("mousemove", (e) => move(e.clientX, e.clientY));
+  ov.addEventListener("touchstart", (e) => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  ov.addEventListener("touchmove", (e) => move(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  ov.addEventListener("mouseleave", () => { box.classList.remove("hover"); tips.hide(); });
+}
+
+$("#speed-run").onclick = async () => {
+  const res = $("#speed-res");
+  res.className = "res"; res.textContent = "";
+  try {
+    const r = await (await fetch("/api/speedtest", { method: "POST", headers: { "X-Down-Again": "1" } })).json();
+    if (r.ok) {
+      if (S.st && S.st.speed) S.st.speed.running = true;
+      renderSpeedVals();
+    } else {
+      res.className = "res bad";
+      res.textContent = { cooldown: t("speed.cooldown", { n: r.wait }), offline: t("speed.offline"), running: t("speed.busy") }[r.code] || r.code || "?";
+    }
+  } catch (e) { res.className = "res bad"; res.textContent = t("noContact"); }
+};
+
+$("#sp-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const res = $("#plan-res");
+  try {
+    const body = JSON.stringify({ down: Number($("#plan-down").value || 0), up: Number($("#plan-up").value || 0) });
+    const r = await (await fetch("/api/plan", { method: "POST", headers: { "X-Down-Again": "1", "Content-Type": "application/json" }, body })).json();
+    if (!r.ok) throw new Error(r.code);
+    S.cfg.plan_down_mbps = r.plan.down; S.cfg.plan_up_mbps = r.plan.up;
+    res.className = "res ok"; res.textContent = t("speed.saved");
+    renderPlanForm(); renderSpeedVals.html = null; renderSpeedVals(); renderSpeedChart(); renderSpeedDesc();
+  } catch (err) { res.className = "res bad"; res.textContent = t("ntfy.failed", { e: err.message }); }
+};
+
+function renderPlanForm() {
+  const plan = planNow();
+  if (document.activeElement !== $("#plan-down")) $("#plan-down").value = plan.down || "";
+  if (document.activeElement !== $("#plan-up")) $("#plan-up").value = plan.up || "";
+  $("#sp-plan-sum").textContent = t("speed.plan") + (plan.down ? `: ${NM.num(plan.down)} / ${NM.num(plan.up)} Mbps` : "");
+  if (!plan.down) $("#sp-plan").open = true;      // sem plano: já mostra o formulário
+}
+
 /* ---------- resumo do período ---------- */
 function currentRange() {
   if (S.period === "custom" && S.custom) return S.custom;
@@ -286,6 +415,7 @@ async function loadSummary() {
   const qs = `from=${r.from}&to=${r.to}`;
   $("#lnk-report").href = "/relatorio?" + qs;
   $("#lnk-csv").href = `/api/outages.csv?${qs}&lang=${NM.lang}`;
+  loadSpeed();
   try { S.sum = await NM.get("/api/summary?" + qs); renderSummary(); } catch (e) { /* mantém o último */ }
 }
 
@@ -426,6 +556,9 @@ async function loadConfig() {
     $("#ntfy-step2").innerHTML = t("ntfy.step2", { server: esc(S.cfg.ntfy_server.replace(/^https?:\/\//, "")) });
     const addr = S.cfg.host ? `http://${S.cfg.host}:${S.cfg.port}` : "";
     renderPhone();
+    renderPlanForm();
+    // o plano chega com a configuração: redesenha o que compara com ele
+    renderSpeedVals.html = null; renderSpeedVals(); renderSpeedChart(); renderSpeedDesc();
     $("#foot").innerHTML = esc(t("foot", { n: S.cfg.interval })) + (addr ? ` · <a href="${esc(addr)}">${esc(addr)}</a>` : "") + (S.cfg.ip ? ` · ${esc(S.cfg.ip)}` : "");
   } catch (e) { setTimeout(loadConfig, 5000); }
 }
@@ -482,7 +615,7 @@ renderInstall();
 renderPhone();
 
 let rT;
-window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(renderSeries, 120); });
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { renderSeries(); renderSpeedChart(); }, 120); });
 
 loadConfig();
 pollStatus();

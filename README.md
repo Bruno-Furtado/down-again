@@ -21,6 +21,7 @@
 - 🟢 **Live status**: online or offline, with a timer and the likely cause.
 - 🔍 **Who's to blame**: the ISP, your Wi-Fi or DNS.
 - 📊 **History**: daily timeline and outage counts for 24 h, 7 days and 30 days.
+- 🚀 **Speed tests**: every 30 minutes, compared with the plan you pay for.
 - 🧾 **ISP report**: print or save as PDF, plus CSV for spreadsheets.
 - 📱 **Phone alerts**: a message as soon as the internet is back.
 - 📲 **Works like an app**: add it to your phone's home screen, or scan the QR code on the dashboard.
@@ -108,8 +109,13 @@ Time when the computer is off or asleep is marked as *not monitored*. It is neve
 | `ntfy_server` | `https://ntfy.sh` | Your own ntfy server, if you have one |
 | `notify_min_seconds` | `0` | Only alert about outages at least this long |
 | `keep_samples_days` | `120` | Days of raw checks to keep (outages are kept forever) |
+| `speedtest_minutes` | `30` | Speed test interval in minutes. `0` turns it off |
+| `speedtest_seconds` | `5` | Duration of each direction (download and upload) |
+| `plan_down_mbps` / `plan_up_mbps` | `0` | Your plan, to compare each test (you can also set it on the dashboard) |
 
 Restart down-again after editing.
+
+**Speed tests use data.** Each one runs 6 parallel connections to Cloudflare (`speed.cloudflare.com`) for 5 s per direction. On a 500 Mbps plan that's about 500 MB per test, so roughly 700 GB a month every 30 minutes. Raise `speedtest_minutes` if your plan has a data cap. Outage detection pauses during each test, and the results are indicative: an official measurement uses your regulator's tool.
 </details>
 
 <details>

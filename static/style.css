@@ -204,6 +204,31 @@ input[type=date] { font: inherit; font-size: 13px; padding: 6px 9px; border-radi
 .legend i { width: 12px; height: 4px; border-radius: 2px; background: var(--c); display: inline-block; }
 .legend i.sq { width: 10px; height: 10px; border-radius: 3px; }
 
+/* velocidade */
+.speed { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr); gap: 16px; }
+.sp-row { display: flex; align-items: baseline; gap: 6px; }
+.sp-lbl { width: 104px; color: var(--muted); font-size: 13px; flex: none; }
+.sp-row b { font-size: 30px; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.sp-row small { color: var(--muted); font-size: 13px; }
+.sp-pct { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.sp-pct.low { color: var(--down); font-weight: 650; }
+.sp-bar { height: 6px; border-radius: 3px; background: var(--unmon); margin: 6px 0 14px; overflow: hidden; }
+.sp-bar i { display: block; height: 100%; border-radius: 3px; background: var(--c); }
+.sp-meta { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.sp-plan { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13.5px; }
+.sp-plan summary { cursor: pointer; color: var(--muted); }
+.sp-plan form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; }
+.sp-plan input { width: 92px; font: inherit; font-size: 14px; padding: 6px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.sp-hint { flex-basis: 100%; color: var(--muted); }
+.chart .l-up { fill: none; stroke: var(--ok); stroke-width: 2; stroke-linejoin: round; }
+.chart .d-down { fill: var(--accent); }
+.chart .d-up { fill: var(--ok); }
+.chart .sp-plan-line { stroke: var(--accent-2); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: .8; }
+.chart .sp-40-line { stroke: var(--down); stroke-width: 1.2; stroke-dasharray: 3 4; opacity: .55; }
+.legend i.dash { height: 0; border-top: 2px dashed var(--c); background: none; }
+.btn.busy svg { animation: spin .9s linear infinite; }
+.btn:disabled { opacity: .6; cursor: default; }
+
 /* linha do tempo */
 .tl { display: grid; gap: 7px; }
 .tl-row { display: grid; grid-template-columns: 74px minmax(0, 1fr) 96px; align-items: center; gap: 12px; }
@@ -300,6 +325,7 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
 @media (max-width: 920px) {
   .hero, .kpis, .actions { grid-template-columns: minmax(0, 1fr); }
   .hero .path-card, .glance { grid-column: auto; grid-row: auto; }
+  .speed { grid-template-columns: minmax(0, 1fr); }
   .gl-tiles { flex-basis: 100%; }
   .kgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

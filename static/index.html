@@ -97,6 +97,40 @@
     </div>
   </section>
 
+  <section id="speed-sec">
+    <div class="sec-h">
+      <div><h2 data-i18n="speed.title"></h2><p id="speed-desc">&nbsp;</p></div>
+      <div class="btns" style="align-items:center">
+        <span class="res" id="speed-res"></span>
+        <button class="btn" id="speed-run"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg><span data-i18n="speed.run"></span></button>
+      </div>
+    </div>
+    <div class="speed">
+      <div class="card">
+        <div id="speed-vals"></div>
+        <details class="sp-plan" id="sp-plan">
+          <summary id="sp-plan-sum" data-i18n="speed.plan"></summary>
+          <form id="sp-form">
+            <label>↓ <input id="plan-down" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</label>
+            <label>↑ <input id="plan-up" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</label>
+            <button class="btn" type="submit" data-i18n="speed.save"></button>
+            <span class="res" id="plan-res"></span>
+            <small class="sp-hint" data-i18n="speed.planHint"></small>
+          </form>
+        </details>
+      </div>
+      <div class="card">
+        <div class="legend">
+          <span><i style="--c:var(--accent)"></i><span data-i18n="speed.download"></span></span>
+          <span><i style="--c:var(--ok)"></i><span data-i18n="speed.upload"></span></span>
+          <span><i class="dash" style="--c:var(--accent-2)"></i><span data-i18n="speed.legendPlan"></span></span>
+          <span><i class="dash" style="--c:var(--down)"></i><span data-i18n="speed.legend40"></span></span>
+        </div>
+        <div class="chart" id="speed-chart"></div>
+      </div>
+    </div>
+  </section>
+
   <section>
     <div class="sec-h">
       <div><h2 data-i18n="sum.title"></h2><p id="period-desc">&nbsp;</p></div>
