@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080c15">
 <title>down-again</title>
-<link rel="icon" id="favicon" href="data:,">
+<link rel="icon" id="favicon" href="/icon.svg">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="down-again">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body data-state="idle">
@@ -33,6 +38,13 @@
       </div>
     </div>
   </header>
+
+  <div class="card install" id="install" hidden>
+    <img src="/icon-192.png" alt="" class="install-ic">
+    <div class="install-txt"><b data-i18n="install.title"></b><span id="install-how"></span>
+      <button class="btn primary" id="install-btn" hidden data-i18n="install.button"></button></div>
+    <button class="icon-btn install-x" id="install-x" data-i18n-title="install.close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
 
   <div class="hero">
     <div class="card status is-idle" id="status">
@@ -167,6 +179,10 @@
       <div class="topic"><span id="topic">…</span><button class="btn" id="copy" style="padding:5px 10px;font-size:12.5px" data-i18n="ntfy.copy"></button></div>
       <div class="btns" style="align-items:center"><button class="btn" id="test" data-i18n="ntfy.test"></button><span class="res" id="test-res"></span></div>
     </div>
+    <div class="card phone">
+      <h2 style="margin:0;font-size:17px" data-i18n="phone.title"></h2>
+      <div id="phone-body"></div>
+    </div>
   </section>
 
   <footer id="foot">down-again</footer>
@@ -174,6 +190,7 @@
 
 <script src="/i18n.js"></script>
 <script src="/common.js"></script>
+<script src="/qr.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

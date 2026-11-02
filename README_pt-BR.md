@@ -23,6 +23,7 @@ O **down-again** vigia a internet de casa a partir de qualquer computador ligado
 - 📊 **Histórico**: linha do tempo por dia e quedas em 24h, 7 e 30 dias.
 - 🧾 **Relatório para o provedor**: imprimir ou salvar em PDF, mais CSV para planilhas.
 - 📱 **Avisos no celular**: uma mensagem assim que a internet volta.
+- 📲 **Funciona como app**: adicione à tela de início do celular ou leia o QR code do painel.
 - 🌐 **3 idiomas**: English, Português e 中文.
 - 🪶 **Zero dependências**: só Python. O painel funciona mesmo com a internet fora.
 

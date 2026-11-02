@@ -82,10 +82,13 @@ down_again.py         monitor, notifier, statistics (summarize/glance/timeseries
 static/index.html     dashboard markup           static/app.js     dashboard logic
 static/relatorio.html printable ISP report       static/report.js  report logic
 static/i18n.js        UI strings for en / pt / zh
+static/qr.js          dependency-free QR encoder (byte mode, level M, versions 1-6) for the "open on your phone" card
+static/manifest.webmanifest, icon*.png, icon.svg   home-screen app (regenerate icons with `node tools/capture.mjs icons`)
 static/common.js      shared helpers (NM.*): i18n (t, flags, language menu), formatting, timeline, hour bars, tooltips
 static/style.css      all styles; light/dark tokens on :root
 tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Windows
 tests/test_i18n.py    translation parity (same keys and placeholders in every language)
+tests/test_static.py  every allow-listed static file exists; manifest and HTML only point to served files
 tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
 tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
 tools/cover.html      cover template (one per language via ?lang=)
@@ -109,6 +112,7 @@ python3 down_again.py                    # monitor + dashboard on :8000 (uses ./
 python3 -m unittest discover -s tests    # parser, translation and security tests
 python3 tools/demo.py                    # demo dashboard on :8766 with simulated data (temp dir, alerts off)
 node tools/capture.mjs                   # regenerate docs/<lang>/ images (demo must be running; LANGS=en to limit)
+node tools/capture.mjs icons             # regenerate the app icons in static/
 ```
 
 `DOWNAGAIN_DATA=/some/dir` moves the data folder. The demo uses this, so experiments never touch real data.

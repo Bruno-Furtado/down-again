@@ -23,6 +23,7 @@
 - 📊 **History**: daily timeline and outage counts for 24 h, 7 days and 30 days.
 - 🧾 **ISP report**: print or save as PDF, plus CSV for spreadsheets.
 - 📱 **Phone alerts**: a message as soon as the internet is back.
+- 📲 **Works like an app**: add it to your phone's home screen, or scan the QR code on the dashboard.
 - 🌐 **3 languages**: English, Português and 中文.
 - 🪶 **Zero dependencies**: just Python. The dashboard works even with the internet down.
 

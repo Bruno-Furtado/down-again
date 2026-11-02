@@ -2,9 +2,10 @@
 // Requer Google Chrome e ffmpeg. Sem dependências npm (usa o WebSocket nativo do Node 22+).
 //
 //   python3 tools/demo.py          # em outro terminal (porta 8766)
-//   node tools/capture.mjs         # tudo; ou: node tools/capture.mjs shots|gif|cover
+//   node tools/capture.mjs         # tudo; ou: node tools/capture.mjs shots|gif|cover|icons
 //
 // Gera docs/<idioma>/{cover.png, demo.gif, dashboard.png, report.png} para en, pt e zh.
+// "icons" gera os ícones do app em static/ (não precisa da demo rodando).
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -66,12 +67,41 @@ async function shot(file, clip) {
 const rect = (sel) => js(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height }; })()`);
 
 const LANGS = (process.env.LANGS || "en,pt,zh").split(",");
-const PREFS = { period: "7d", series: "24" };
+const PREFS = { period: "7d", series: "24", installHidden: true };   // sem o aviso de instalar nas imagens
 const IDENT = {
   en: { titular: "Jane Example", provedor: "Example ISP", endereco: "123 Example St, Springfield", plano: "500 Mbps fiber", cliente: "000123456", protocolos: "2026110100123, 2026110200456" },
   pt: { titular: "Maria Exemplo", provedor: "Operadora X", endereco: "Rua Exemplo, 123 — São Paulo/SP", plano: "500 Mbps fibra", cliente: "000123456", protocolos: "2026110100123, 2026110200456" },
   zh: { titular: "示例用户", provedor: "示例运营商", endereco: "示例路 123 号", plano: "500 Mbps 光纤", cliente: "000123456", protocolos: "2026110100123, 2026110200456" },
 };
+
+// Ícones do app (tela de início do celular e favicon): gradiente roxo com o pulso branco.
+function iconSVG(size, rounded, scale) {
+  const s = (size * scale) / 24, off = (size - 24 * s) / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6cf0"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>` +
+    `<rect width="${size}" height="${size}" rx="${rounded ? size * 0.225 : 0}" fill="url(#g)"/>` +
+    `<path transform="translate(${off} ${off}) scale(${s})" d="M3 12h4l2.5-6 5 12 2.5-6h4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+if (MODE === "icons") {
+  const STATIC = path.join(TOOLS, "..", "static");
+  fs.writeFileSync(path.join(STATIC, "icon.svg"), iconSVG(64, true, 0.62) + "\n");
+  await send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
+  // iPhone arredonda sozinho e pinta transparência de preto: ícone quadrado e cheio.
+  // "maskable" (Android): o desenho fica dentro da zona segura central.
+  const SPECS = [["icon-180.png", 180, false, 0.6], ["icon-192.png", 192, true, 0.62], ["icon-512.png", 512, true, 0.62],
+    ["icon-maskable-512.png", 512, false, 0.46]];
+  for (const [name, size, rounded, scale] of SPECS) {
+    await viewport(size, size, 1);
+    const l = once("Page.loadEventFired");
+    await send("Page.navigate", { url: "data:text/html," + encodeURIComponent(`<style>html,body{margin:0;background:transparent}svg{display:block}</style>${iconSVG(size, rounded, scale)}`) });
+    await l;
+    await sleep(200);
+    await shot(path.join(STATIC, name));
+  }
+  ws.close();
+  chrome.kill();
+  process.exit(0);
+}
 
 for (const lang of LANGS) {
   const OUT = path.join(DOCS, lang);
