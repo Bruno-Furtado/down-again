@@ -425,9 +425,61 @@ async function loadConfig() {
     $("#topic").textContent = S.cfg.ntfy_topic || t("ntfy.disabled");
     $("#ntfy-step2").innerHTML = t("ntfy.step2", { server: esc(S.cfg.ntfy_server.replace(/^https?:\/\//, "")) });
     const addr = S.cfg.host ? `http://${S.cfg.host}:${S.cfg.port}` : "";
+    renderPhone();
     $("#foot").innerHTML = esc(t("foot", { n: S.cfg.interval })) + (addr ? ` · <a href="${esc(addr)}">${esc(addr)}</a>` : "") + (S.cfg.ip ? ` · ${esc(S.cfg.ip)}` : "");
   } catch (e) { setTimeout(loadConfig, 5000); }
 }
+
+/* ---------- celular: aviso de instalar e QR code ---------- */
+const UA = navigator.userAgent;
+const IS_IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const IS_PHONE = IS_IOS || /Android|Mobi/i.test(UA);
+const STANDALONE = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const SHARE_ICON = `<svg class="share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11v9h12v-9"/></svg>`;
+let installPrompt = null;   // só existe no Android/Chrome em HTTPS ou localhost
+
+// iPhone não deixa site se adicionar sozinho: mostramos o caminho pelo botão Compartilhar.
+const installHow = () => (IS_IOS ? t("install.ios", { share: SHARE_ICON }) : t("install.android"));
+
+function renderInstall() {
+  $("#install").hidden = !(IS_PHONE && !STANDALONE && !NM.store.get("installHidden", false));
+  $("#install-how").innerHTML = installHow();
+  $("#install-btn").hidden = !installPrompt;
+}
+
+async function promptInstall() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  renderInstall();
+  renderPhone();
+}
+
+function renderPhone() {
+  const box = $("#phone-body");
+  if (STANDALONE) { box.innerHTML = `<p>${t("phone.installed")}</p>`; return; }
+  if (IS_PHONE) {
+    box.innerHTML = `<p>${installHow()}</p>` +
+      (installPrompt ? `<div class="btns" style="margin-top:12px"><button class="btn primary" id="phone-install">${t("install.button")}</button></div>` : "");
+    if (installPrompt) $("#phone-install").onclick = promptInstall;
+    return;
+  }
+  // No computador: QR com o nome .local (endereço que não muda); o IP fica como alternativa.
+  const cfg = S.cfg || {}, port = cfg.port || location.port;
+  const url = cfg.host ? `http://${cfg.host}:${port}` : cfg.ip ? `http://${cfg.ip}:${port}` : location.origin;
+  const alt = cfg.host && cfg.ip ? `${cfg.ip}:${port}` : url.replace(/^https?:\/\//, "");
+  const code = QR.svg(url);
+  box.innerHTML = (code ? `<div class="qr">${code}</div>` : "") + `<p>${t("phone.desc")}</p>` +
+    `<p class="muted">${t("phone.or", { url: `<code>${esc(alt)}</code>` })}</p>`;
+}
+
+$("#install-x").onclick = () => { NM.store.set("installHidden", true); renderInstall(); };
+$("#install-btn").onclick = promptInstall;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; renderInstall(); renderPhone(); });
+window.addEventListener("appinstalled", () => { NM.store.set("installHidden", true); renderInstall(); });
+renderInstall();
+renderPhone();
 
 let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(renderSeries, 120); });

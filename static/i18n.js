@@ -102,7 +102,8 @@ const I18N = {
     "r.th.network": "Network", "r.ongoing": "ongoing", "r.noOutages": "No outages recorded in this period.",
     "r.unmon": "Periods not monitored", "r.th.from": "From", "r.th.to": "To", "r.unmonNone": "None — monitoring was continuous in this period.",
     "r.footer": "Generated on {dt} by the down-again monitor{host}. Raw data for every outage is available as a spreadsheet (CSV).",
-    "r.docTitle": "Availability report — {p}", "r.periodRange": "{a} to {b}"
+    "r.docTitle": "Availability report — {p}", "r.periodRange": "{a} to {b}",
+    "install.title": "Add down-again to your home screen", "install.ios": "Tap {share} Share, then “Add to Home Screen”.", "install.android": "Tap ⋮ in the browser menu, then “Add to Home screen”.", "install.button": "Install app", "install.close": "Close", "phone.title": "Open on your phone", "phone.desc": "Point the camera of a phone on the same Wi-Fi at the code. Then add it to the home screen to use it like an app.", "phone.or": "or type {url}", "phone.installed": "You're using the app. Nothing else to do here."
   },
   "pt": {
     "unit.d": "d", "unit.h": "h", "unit.min": "min", "unit.s": "s",
@@ -203,7 +204,8 @@ const I18N = {
     "r.th.network": "Rede", "r.ongoing": "em andamento", "r.noOutages": "Nenhuma interrupção registrada no período.",
     "r.unmon": "Períodos não monitorados", "r.th.from": "De", "r.th.to": "Até", "r.unmonNone": "Nenhum — o monitoramento foi contínuo no período.",
     "r.footer": "Gerado em {dt} pelo monitor down-again{host}. Os dados brutos de cada interrupção estão disponíveis em planilha (CSV).",
-    "r.docTitle": "Relatório de disponibilidade — {p}", "r.periodRange": "{a} a {b}"
+    "r.docTitle": "Relatório de disponibilidade — {p}", "r.periodRange": "{a} a {b}",
+    "install.title": "Adicione o down-again à tela de início", "install.ios": "Toque em {share} Compartilhar e depois em “Adicionar à Tela de Início”.", "install.android": "Toque em ⋮ no menu do navegador e depois em “Adicionar à tela inicial”.", "install.button": "Instalar app", "install.close": "Fechar", "phone.title": "Abrir no celular", "phone.desc": "Aponte a câmera de um celular conectado ao mesmo Wi-Fi para o código. Depois adicione à tela de início para usar como app.", "phone.or": "ou digite {url}", "phone.installed": "Você está usando o app. Não precisa fazer mais nada aqui."
   },
   "zh": {
     "unit.d": "天", "unit.h": "小时", "unit.min": "分", "unit.s": "秒",
@@ -304,6 +306,7 @@ const I18N = {
     "r.th.network": "网络", "r.ongoing": "进行中", "r.noOutages": "该时段未记录到断线。",
     "r.unmon": "未监控时段", "r.th.from": "从", "r.th.to": "至", "r.unmonNone": "无 — 该时段监控持续进行。",
     "r.footer": "由 down-again 监控{host}生成于 {dt}。每次断线的原始数据可导出为表格（CSV）。",
-    "r.docTitle": "可用率报告 — {p}", "r.periodRange": "{a} 至 {b}"
+    "r.docTitle": "可用率报告 — {p}", "r.periodRange": "{a} 至 {b}",
+    "install.title": "将 down-again 添加到主屏幕", "install.ios": "点击 {share}“分享”，然后选择“添加到主屏幕”。", "install.android": "点击浏览器菜单 ⋮，然后选择“添加到主屏幕”。", "install.button": "安装应用", "install.close": "关闭", "phone.title": "在手机上打开", "phone.desc": "用连接同一 Wi-Fi 的手机摄像头扫描二维码，然后添加到主屏幕，像应用一样使用。", "phone.or": "或输入 {url}", "phone.installed": "你正在使用应用，无需其他操作。"
   }
 };
