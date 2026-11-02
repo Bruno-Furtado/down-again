@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, python: "3.8" }    # oldest supported Python (macOS 11 ships 3.8)
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.13" }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Unit tests (parsers, translations, security)
+        run: python -m unittest discover -s tests -v
+      - name: Python 3.8 syntax
+        run: python -c "import ast; [ast.parse(open(f, encoding='utf-8').read(), feature_version=(3, 8)) for f in ('down_again.py', 'tools/demo.py')]"
+      # Real run of the platform layer on each OS (CI runners are VMs, and ping may be blocked there).
+      - name: Smoke test (check)
+        env:
+          DOWNAGAIN_DATA: ${{ runner.temp }}/down-again-data
+        run: python down_again.py check
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: JavaScript syntax
+        run: for f in static/*.js tools/capture.mjs; do node --check "$f"; done

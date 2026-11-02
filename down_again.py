@@ -58,6 +58,7 @@ IS_WIN = sys.platform.startswith("win")
 PLATFORM = "macOS" if IS_MAC else "Linux" if IS_LINUX else "Windows" if IS_WIN else sys.platform
 
 DEFAULTS = {
+    "language": "auto",            # "en", "pt", "zh" ou "auto" (idioma do sistema): avisos, CSV, terminal
     "bind": "0.0.0.0",             # "127.0.0.1" deixa o painel só nesta máquina
     "port": 8000,
     "allowed_hosts": [],           # nomes extras para o painel (IPs, localhost e *.local já valem)
@@ -75,12 +76,171 @@ DEFAULTS = {
 TCP_TARGETS = [("1.1.1.1", 443), ("8.8.8.8", 443), ("208.67.222.222", 443)]
 HTTP_URL = "http://captive.apple.com/hotspot-detect.html"
 
-CAUSES = {
-    "isp": "Provedor",
-    "local": "Rede local / Wi-Fi",
-    "dns": "DNS / sites não abrem",
-    "unknown": "Indeterminada",
+# Textos do servidor (avisos no celular, CSV, terminal) em todos os idiomas da interface.
+# O idioma vem de "language" no config.json ("auto" = idioma do sistema). tests/test_i18n.py
+# confere que todos os idiomas têm as mesmas chaves e os mesmos {marcadores}.
+TEXTS = {
+    "en": {
+        "unit.d": "d", "unit.h": "h", "unit.min": "min", "unit.s": "s",
+        "cause.isp": "ISP", "cause.local": "Local network / Wi-Fi", "cause.dns": "DNS / websites not loading",
+        "cause.unknown": "Unknown",
+        "net.none": "no network", "net.cable": "Cable ({port})",
+        "notify.back.title": "Internet is back",
+        "notify.back.body": "Went down at {start} and came back at {end} ({dur}).\nLikely cause: {cause}.\nOutages today: {today}.",
+        "notify.gap.title": "The monitor stopped running",
+        "notify.gap.body": "From {a} to {b} ({dur}). Computer off, asleep or a power cut — this period shows as 'not monitored'.",
+        "notify.test.title": "down-again test", "notify.test.body": "If you can read this, alerts are working.",
+        "log.notify_failed": "alert not sent, retrying in 30s: {err}", "log.db_error": "database error: {err}",
+        "log.outage": "OUTAGE since {since} — likely cause: {cause}", "log.back": "back after {dur} ({cause})",
+        "log.gap": "the monitor was stopped for {dur} (computer asleep or frozen)",
+        "log.started": "monitor started on {os} (checking every {n}s)",
+        "log.experimental": "warning: {os} support is experimental and has not been tested on a real machine",
+        "log.panel": "dashboard: {url}", "log.subscribe": "alerts: subscribe to the topic '{topic}' in the ntfy app",
+        "log.stopped": "monitor stopped",
+        "http.host": "Host not allowed. To use another name, add it to allowed_hosts in dados/config.json.",
+        "check.system": "System", "check.experimental": "experimental, not tested on a real machine",
+        "check.network": "Network", "check.signal": "signal", "check.router": "Router (gateway)",
+        "check.no_gateway": "none — computer has no network", "check.ping": "ping", "check.internet": "Internet by IP",
+        "check.site": "Website by name", "check.ok": "ok", "check.failed": "failed", "check.no_reply": "no reply",
+        "check.diagnosis": "Diagnosis", "check.conn_ok": "connection OK", "check.no_internet": "NO INTERNET — {cause}",
+        "check.channel": "channel {channel}, link {rate} Mbps",
+        "check.no_ping_note": "Note: your router doesn't answer ping. The monitor can't tell 'ISP' from 'local network', so outages show as 'Unknown'.",
+        "install.done": "Installed. The monitor is running now and will start by itself {how}.",
+        "install.panel": "Dashboard: {url}", "install.log": "Log:       {log}",
+        "install.how_mac": "whenever you log in to the Mac", "install.how_linux": "when you log in",
+        "install.how_win": "when you sign in to Windows",
+        "install.protected": "The folder is in ~/{folder}, which macOS blocks for background programs.\nMove the down-again folder to your home folder (e.g. ~/down-again) and run this again.",
+        "install.old_removed": "Removed the old automatic start (netmon).",
+        "install.launchd_failed": "Could not load the LaunchAgent. See: launchctl load -w {path}",
+        "install.no_systemd": "systemd not found. Run it in the background another way, e.g. in crontab:\n  @reboot {cmd}",
+        "install.systemctl_failed": "Failed: systemctl --user {cmd}",
+        "install.linger": "To run even when nobody is logged in (e.g. a Raspberry Pi after a power cut):\n  sudo loginctl enable-linger {user}",
+        "install.path_too_long": "The path is too long for Task Scheduler. Move the folder to something like C:\\down-again.",
+        "install.task_failed": "Could not create the task. Try again from a terminal opened as administrator.",
+        "install.experimental": "Warning: {os} support is experimental and has not been tested on a real machine.",
+        "install.unsupported": "Automatic start is not supported on {os}. Run: python3 down_again.py",
+        "uninstall.done": "Automatic start removed (your data in {data} is still there).", "uninstall.none": "It wasn't installed.",
+        "csv.start": "Start", "csv.end": "End", "csv.dur_s": "Duration (seconds)", "csv.dur": "Duration",
+        "csv.cause": "Likely cause", "csv.network": "Network", "csv.note": "Note", "csv.ongoing": "ongoing",
+        "csv.stopped": "monitor stopped", "csv.file": "outages",
+    },
+    "pt": {
+        "unit.d": "d", "unit.h": "h", "unit.min": "min", "unit.s": "s",
+        "cause.isp": "Provedor", "cause.local": "Rede local / Wi-Fi", "cause.dns": "DNS / sites não abrem",
+        "cause.unknown": "Indeterminada",
+        "net.none": "sem rede", "net.cable": "Cabo ({port})",
+        "notify.back.title": "Internet voltou",
+        "notify.back.body": "Caiu às {start} e voltou às {end} ({dur}).\nCausa provável: {cause}.\nQuedas hoje: {today}.",
+        "notify.gap.title": "Monitor ficou sem rodar",
+        "notify.gap.body": "De {a} até {b} ({dur}). Computador desligado, dormindo ou falta de luz — esse período aparece como 'não monitorado'.",
+        "notify.test.title": "Teste do down-again", "notify.test.body": "Se você está lendo isto, os avisos estão funcionando.",
+        "log.notify_failed": "aviso não enviado, tento de novo em 30s: {err}", "log.db_error": "erro no banco: {err}",
+        "log.outage": "QUEDA desde {since} — causa provável: {cause}", "log.back": "voltou após {dur} ({cause})",
+        "log.gap": "monitor ficou parado {dur} (computador dormiu ou travou)",
+        "log.started": "monitor iniciado no {os} (teste a cada {n}s)",
+        "log.experimental": "aviso: o suporte a {os} é experimental e ainda não foi testado em máquina real",
+        "log.panel": "painel: {url}", "log.subscribe": "avisos: assine o tópico '{topic}' no app ntfy",
+        "log.stopped": "monitor parado",
+        "http.host": "Host não permitido. Para usar outro nome, inclua-o em allowed_hosts no dados/config.json.",
+        "check.system": "Sistema", "check.experimental": "experimental, não testado em máquina real",
+        "check.network": "Rede", "check.signal": "sinal", "check.router": "Roteador (gateway)",
+        "check.no_gateway": "nenhum — computador sem rede", "check.ping": "ping", "check.internet": "Internet por IP",
+        "check.site": "Site por nome", "check.ok": "ok", "check.failed": "falhou", "check.no_reply": "sem resposta",
+        "check.diagnosis": "Diagnóstico", "check.conn_ok": "conexão OK", "check.no_internet": "SEM INTERNET — {cause}",
+        "check.channel": "canal {channel}, link {rate} Mbps",
+        "check.no_ping_note": "Obs.: seu roteador não responde a ping. O monitor não consegue separar 'provedor' de 'rede local', e as quedas aparecem como 'Indeterminada'.",
+        "install.done": "Instalado. O monitor já está rodando e vai iniciar sozinho {how}.",
+        "install.panel": "Painel: {url}", "install.log": "Log:    {log}",
+        "install.how_mac": "sempre que você entrar no Mac", "install.how_linux": "quando você entrar no sistema",
+        "install.how_win": "quando você entrar no Windows",
+        "install.protected": "A pasta está em ~/{folder}, que o macOS bloqueia para programas em segundo plano.\nMova a pasta down-again para a sua pasta pessoal (ex.: ~/down-again) e rode de novo.",
+        "install.old_removed": "Removido o início automático antigo (netmon).",
+        "install.launchd_failed": "Falha ao carregar o LaunchAgent. Veja: launchctl load -w {path}",
+        "install.no_systemd": "systemd não encontrado. Rode em segundo plano por outro meio, por exemplo no crontab:\n  @reboot {cmd}",
+        "install.systemctl_failed": "Falha em: systemctl --user {cmd}",
+        "install.linger": "Para rodar mesmo sem ninguém logado (ex.: Raspberry Pi depois de uma falta de luz):\n  sudo loginctl enable-linger {user}",
+        "install.path_too_long": "Caminho longo demais para o Agendador de Tarefas. Mova a pasta para algo como C:\\down-again.",
+        "install.task_failed": "Falha ao criar a tarefa. Tente de novo num terminal aberto como administrador.",
+        "install.experimental": "Aviso: o suporte a {os} é experimental e ainda não foi testado em máquina real.",
+        "install.unsupported": "Início automático não suportado em {os}. Rode: python3 down_again.py",
+        "uninstall.done": "Início automático removido (os dados em {data} continuam lá).", "uninstall.none": "Não estava instalado.",
+        "csv.start": "Início", "csv.end": "Fim", "csv.dur_s": "Duração (segundos)", "csv.dur": "Duração",
+        "csv.cause": "Causa provável", "csv.network": "Rede", "csv.note": "Observação", "csv.ongoing": "em andamento",
+        "csv.stopped": "monitor parado", "csv.file": "quedas",
+    },
+    "zh": {
+        "unit.d": "天", "unit.h": "小时", "unit.min": "分", "unit.s": "秒",
+        "cause.isp": "运营商", "cause.local": "本地网络 / Wi-Fi", "cause.dns": "DNS / 网站打不开",
+        "cause.unknown": "无法确定",
+        "net.none": "无网络", "net.cable": "网线（{port}）",
+        "notify.back.title": "网络已恢复",
+        "notify.back.body": "{start} 断开，{end} 恢复（{dur}）。\n可能原因：{cause}。\n今日断线：{today} 次。",
+        "notify.gap.title": "监控曾停止运行",
+        "notify.gap.body": "从 {a} 到 {b}（{dur}）。电脑关机、睡眠或停电 — 该时段显示为“未监控”。",
+        "notify.test.title": "down-again 测试", "notify.test.body": "如果你看到这条消息，说明通知功能正常。",
+        "log.notify_failed": "通知未发送，30 秒后重试：{err}", "log.db_error": "数据库错误：{err}",
+        "log.outage": "断线，开始于 {since} — 可能原因：{cause}", "log.back": "已恢复，断开 {dur}（{cause}）",
+        "log.gap": "监控停止了 {dur}（电脑睡眠或卡住）",
+        "log.started": "监控已在 {os} 上启动（每 {n} 秒检测一次）",
+        "log.experimental": "提示：{os} 支持仍为实验性，尚未在真机上测试",
+        "log.panel": "面板：{url}", "log.subscribe": "通知：在 ntfy 应用中订阅主题“{topic}”",
+        "log.stopped": "监控已停止",
+        "http.host": "不允许的 Host。如需使用其他名称，请将其加入 dados/config.json 的 allowed_hosts。",
+        "check.system": "系统", "check.experimental": "实验性，尚未在真机上测试",
+        "check.network": "网络", "check.signal": "信号", "check.router": "路由器（网关）",
+        "check.no_gateway": "无 — 电脑未联网", "check.ping": "ping", "check.internet": "按 IP 访问互联网",
+        "check.site": "按域名访问网站", "check.ok": "正常", "check.failed": "失败", "check.no_reply": "无响应",
+        "check.diagnosis": "诊断", "check.conn_ok": "连接正常", "check.no_internet": "断网 — {cause}",
+        "check.channel": "信道 {channel}，速率 {rate} Mbps",
+        "check.no_ping_note": "提示：你的路由器不响应 ping。监控无法区分“运营商”和“本地网络”，断线会显示为“无法确定”。",
+        "install.done": "已安装。监控正在运行，并会{how}自动启动。",
+        "install.panel": "面板：{url}", "install.log": "日志：{log}",
+        "install.how_mac": "在每次登录 Mac 时", "install.how_linux": "在你登录系统时",
+        "install.how_win": "在你登录 Windows 时",
+        "install.protected": "文件夹位于 ~/{folder}，macOS 会阻止后台程序访问该位置。\n请把 down-again 文件夹移到个人目录（例如 ~/down-again）后重新运行。",
+        "install.old_removed": "已移除旧的自动启动项（netmon）。",
+        "install.launchd_failed": "无法加载 LaunchAgent。请查看：launchctl load -w {path}",
+        "install.no_systemd": "未找到 systemd。请用其他方式后台运行，例如在 crontab 中：\n  @reboot {cmd}",
+        "install.systemctl_failed": "执行失败：systemctl --user {cmd}",
+        "install.linger": "如需在无人登录时也运行（例如 Raspberry Pi 停电重启后）：\n  sudo loginctl enable-linger {user}",
+        "install.path_too_long": "路径过长，任务计划程序无法使用。请把文件夹移到类似 C:\\down-again 的位置。",
+        "install.task_failed": "无法创建任务。请在以管理员身份打开的终端中重试。",
+        "install.experimental": "提示：{os} 支持仍为实验性，尚未在真机上测试。",
+        "install.unsupported": "{os} 不支持自动启动。请运行：python3 down_again.py",
+        "uninstall.done": "已移除自动启动（{data} 中的数据仍保留）。", "uninstall.none": "尚未安装。",
+        "csv.start": "开始", "csv.end": "结束", "csv.dur_s": "时长（秒）", "csv.dur": "时长",
+        "csv.cause": "可能原因", "csv.network": "网络", "csv.note": "备注", "csv.ongoing": "进行中",
+        "csv.stopped": "监控停止", "csv.file": "outages",
+    },
 }
+LANG = "en"   # definido em load_config
+
+
+def tr(key, lang=None, **kw):
+    s = TEXTS.get(lang or LANG, TEXTS["en"]).get(key) or TEXTS["en"].get(key, key)
+    return s.format(**kw) if kw else s
+
+
+def cause_label(code, lang=None):
+    return tr("cause." + (code if code in ("isp", "local", "dns") else "unknown"), lang)
+
+
+def detect_language():
+    """Idioma do sistema: variáveis de ambiente; no macOS, AppleLocale; no Windows, o idioma da interface."""
+    found = [os.environ.get(v) for v in ("LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE")]
+    if IS_MAC:
+        found.append(run_cmd(["defaults", "read", "-g", "AppleLocale"])[1])
+    if IS_WIN:
+        try:
+            import ctypes
+            found.append({0x16: "pt", 0x04: "zh", 0x09: "en"}.get(ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF))
+        except Exception:
+            pass
+    for value in found:
+        code = (value or "").strip().lower()[:2]
+        if code in TEXTS:
+            return code
+    return "en"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS samples(ts REAL, state TEXT, gw_ms REAL, net_ms REAL, http_ok INTEGER, rssi REAL);
@@ -101,18 +261,19 @@ def log(msg):
     print("[%s] %s" % (time.strftime("%d/%m %H:%M:%S"), msg), flush=True)
 
 
-def fmt_dur(sec):
+def fmt_dur(sec, lang=None):
+    u = {k: tr("unit." + k, lang) for k in ("d", "h", "min", "s")}
     sec = int(round(sec))
     d, r = divmod(sec, 86400)
     h, r = divmod(r, 3600)
     m, s = divmod(r, 60)
     if d:
-        return "%dd %02dh%02d" % (d, h, m)
+        return "%d%s %02d%s%02d" % (d, u["d"], h, u["h"], m)
     if h:
-        return "%dh %02dmin" % (h, m)
+        return "%d%s %02d%s" % (h, u["h"], m, u["min"])
     if m:
-        return "%dmin %02ds" % (m, s)
-    return "%ds" % s
+        return "%d%s %02d%s" % (m, u["min"], s, u["s"])
+    return "%d%s" % (s, u["s"])
 
 
 def fmt_ts(ts, fmt="%d/%m/%Y %H:%M:%S"):
@@ -146,6 +307,8 @@ def load_config():
         fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
+    global LANG
+    LANG = cfg["language"] if cfg.get("language") in TEXTS else detect_language()
     db = connect()
     db.executescript(SCHEMA)
     db.close()
@@ -443,9 +606,9 @@ def network_info():
 
 def network_label(net):
     if not net or not net.get("kind"):
-        return "sem rede"
+        return tr("net.none")
     if net["kind"] == "cabo":
-        return "Cabo (%s)" % (net.get("port") or net.get("iface"))
+        return tr("net.cable", port=net.get("port") or net.get("iface"))
     return "Wi-Fi %s" % net["ssid"] if net.get("ssid") else "Wi-Fi"
 
 
@@ -570,7 +733,7 @@ class Notifier:
                            [time.time()] + ids)
                 db.commit()
             else:
-                log("aviso não enviado, tento de novo em 30s: %s" % err)
+                log(tr("log.notify_failed", err=err))
 
 
 # --------------------------------------------------------------------------
@@ -616,7 +779,7 @@ class Monitor:
             try:
                 self.step()
             except sqlite3.Error as e:
-                log("erro no banco: %r" % e)
+                log(tr("log.db_error", err=repr(e)))
             time.sleep(max(0.5, self.cfg["interval"] - (time.time() - t0)))
 
     def step(self):
@@ -677,7 +840,7 @@ class Monitor:
                               (start, state, network_label(self.net))).lastrowid
         self.outage = {"id": oid, "start": start, "counts": counts}
         self.pending = []
-        log("QUEDA desde %s — causa provável: %s" % (fmt_ts(start, "%H:%M:%S"), CAUSES[state]))
+        log(tr("log.outage", since=fmt_ts(start, "%H:%M:%S"), cause=cause_label(state)))
 
     def _close(self, ts, ended_by, notify=True):
         o, self.outage = self.outage, None
@@ -687,14 +850,14 @@ class Monitor:
                         (ts, cause, ended_by, o["id"]))
         with self.lock:
             self.status.update(since=ts, since_start=False)
-        log("voltou após %s (%s)" % (fmt_dur(dur), CAUSES[cause]))
+        log(tr("log.back", dur=fmt_dur(dur), cause=cause_label(cause)))
         if notify and dur >= self.cfg["notify_min_seconds"]:
             today = self.db.execute("SELECT COUNT(*) FROM outages WHERE start_ts >= ?",
                                     (midnight(ts),)).fetchone()[0]
             self.notifier.queue(
-                "Internet voltou",
-                "Caiu às %s e voltou às %s (%s).\nCausa provável: %s.\nQuedas hoje: %d."
-                % (fmt_ts(o["start"], "%H:%M:%S"), fmt_ts(ts, "%H:%M:%S"), fmt_dur(dur), CAUSES[cause], today),
+                tr("notify.back.title"),
+                tr("notify.back.body", start=fmt_ts(o["start"], "%H:%M:%S"), end=fmt_ts(ts, "%H:%M:%S"),
+                   dur=fmt_dur(dur), cause=cause_label(cause), today=today),
                 "green_circle")
 
     def _gap(self, a, b):
@@ -704,16 +867,14 @@ class Monitor:
             self._close(a, "monitor parado", notify=False)
         with self.lock:
             self.status.update(since=b, since_start=True)
-        log("monitor ficou parado %s (computador dormiu ou travou)" % fmt_dur(b - a))
+        log(tr("log.gap", dur=fmt_dur(b - a)))
         if b - a >= self.cfg["notify_monitor_gap_minutes"] * 60:
             self._notify_gap(a, b)
 
     def _notify_gap(self, a, b):
         self.notifier.queue(
-            "Monitor ficou sem rodar",
-            "De %s até %s (%s). Computador desligado, dormindo ou falta de luz — "
-            "esse período aparece como 'não monitorado'." % (fmt_ts(a, "%d/%m %H:%M"), fmt_ts(b, "%d/%m %H:%M"),
-                                                           fmt_dur(b - a)),
+            tr("notify.gap.title"),
+            tr("notify.gap.body", a=fmt_ts(a, "%d/%m %H:%M"), b=fmt_ts(b, "%d/%m %H:%M"), dur=fmt_dur(b - a)),
             "warning")
 
     def stop(self):
@@ -894,15 +1055,24 @@ def timeseries(hours):
                        for b, a, m, g, f, n, r in rows]}
 
 
-def outages_csv(s):
+def outages_csv(s, lang=None):
+    lang = lang or LANG
     out = io.StringIO()
-    w = csv.writer(out, delimiter=";")    # aspas automáticas: um ';' no nome do Wi-Fi não quebra as colunas
-    w.writerow(["Início", "Fim", "Duração (segundos)", "Duração", "Causa provável", "Rede", "Observação"])
+    # Excel em português usa ';' e dia/mês; nos outros idiomas, ',' e data ISO. O csv.writer põe aspas
+    # sozinho: um separador no nome do Wi-Fi não quebra as colunas.
+    w = csv.writer(out, delimiter=";" if lang == "pt" else ",")
+    stamp = "%d/%m/%Y %H:%M:%S" if lang == "pt" else "%Y-%m-%d %H:%M:%S"
+    w.writerow([tr("csv." + k, lang) for k in ("start", "end", "dur_s", "dur", "cause", "network", "note")])
     for o in s["outages"]:
-        note = "em andamento" if o["ongoing"] else ("" if o["ended_by"] == "voltou" else o["ended_by"] or "")
-        w.writerow([fmt_ts(o["start"]), fmt_ts(o["end"]), "%d" % round(o["dur"]),
-                    fmt_dur(o["dur"]), CAUSES.get(o["cause"], o["cause"]), o["network"] or "", note])
-    return "﻿" + out.getvalue()   # BOM + ';' para o Excel em português
+        if o["ongoing"]:
+            note = tr("csv.ongoing", lang)
+        elif o["ended_by"] == "monitor parado":
+            note = tr("csv.stopped", lang)
+        else:
+            note = "" if o["ended_by"] in ("voltou", None) else o["ended_by"]
+        w.writerow([fmt_ts(o["start"], stamp), fmt_ts(o["end"], stamp), "%d" % round(o["dur"]),
+                    fmt_dur(o["dur"], lang), cause_label(o["cause"], lang), o["network"] or "", note])
+    return "\ufeff" + out.getvalue()   # BOM: o Excel abre como UTF-8
 
 
 def parse_range(q):
@@ -932,6 +1102,7 @@ STATIC_FILES = {
     "/common.js": ("common.js", "application/javascript; charset=utf-8"),
     "/app.js": ("app.js", "application/javascript; charset=utf-8"),
     "/report.js": ("report.js", "application/javascript; charset=utf-8"),
+    "/i18n.js": ("i18n.js", "application/javascript; charset=utf-8"),
 }
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
@@ -994,8 +1165,7 @@ class Handler(BaseHTTPRequestHandler):
     def check_host(self):
         if host_allowed(self.headers.get("Host"), list(self.cfg.get("allowed_hosts") or []) + list(self.own_names)):
             return True
-        self.send(403, "Host não permitido. Para usar outro nome, inclua-o em allowed_hosts no "
-                       "dados/config.json.", "text/plain; charset=utf-8")
+        self.send(403, tr("http.host"), "text/plain; charset=utf-8")
         return False
 
     def do_GET(self):
@@ -1017,8 +1187,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(timeseries(min(168.0, max(0.25, float(q.get("hours", ["6"])[0])))))
             if u.path == "/api/outages.csv":
                 t0, t1 = parse_range(q)
-                name = "quedas_%s_a_%s.csv" % (fmt_ts(t0, "%Y-%m-%d"), fmt_ts(t1 - 1, "%Y-%m-%d"))
-                return self.send(200, outages_csv(summarize(t0, t1)), "text/csv; charset=utf-8",
+                lang = self.req_lang(q)
+                name = "%s_%s_%s.csv" % (tr("csv.file", lang), fmt_ts(t0, "%Y-%m-%d"), fmt_ts(t1 - 1, "%Y-%m-%d"))
+                return self.send(200, outages_csv(summarize(t0, t1), lang), "text/csv; charset=utf-8",
                                  {"Content-Disposition": 'attachment; filename="%s"' % name})
             if u.path == "/api/config":
                 return self.json({
@@ -1027,34 +1198,40 @@ class Handler(BaseHTTPRequestHandler):
                     "tcp_targets": ["%s:%d" % t for t in TCP_TARGETS], "http_url": HTTP_URL,
                     "ntfy_server": self.cfg["ntfy_server"], "ntfy_topic": self.cfg["ntfy_topic"],
                     "host": self.info.get("host"), "ip": self.info.get("ip"), "port": self.cfg["port"],
-                    "causes": CAUSES, "platform": PLATFORM,
+                    "platform": PLATFORM, "language": LANG,
                 })
         except (ValueError, OverflowError, OSError):
-            return self.json({"error": "período inválido (use AAAA-MM-DD, até %d dias)" % MAX_RANGE_DAYS}, 400)
+            return self.json({"error": "invalid period (use YYYY-MM-DD, up to %d days)" % MAX_RANGE_DAYS}, 400)
         self.static(u.path)
 
     def do_POST(self):
         if not self.check_host():
             return
-        if urlparse(self.path).path != "/api/test-notify":
-            return self.send(404, "não encontrado", "text/plain; charset=utf-8")
+        u = urlparse(self.path)
+        if u.path != "/api/test-notify":
+            return self.send(404, "not found", "text/plain; charset=utf-8")
         # Cabeçalho próprio força preflight de CORS (que não respondemos): outro site não consegue disparar.
+        # As respostas trazem um código; o painel mostra a mensagem no idioma de quem está vendo.
         if self.headers.get("X-Down-Again") != "1":
-            return self.json({"ok": False, "error": "requisição recusada"}, 403)
+            return self.json({"ok": False, "code": "refused"}, 403)
         with Handler.test_lock:
             wait = 30 - (time.time() - Handler.last_test)
             if wait > 0:
-                return self.json({"ok": False, "error": "aguarde %ds para testar de novo" % wait}, 429)
+                return self.json({"ok": False, "code": "cooldown", "wait": int(wait) + 1}, 429)
             Handler.last_test = time.time()
         if not self.notifier.enabled:
-            return self.json({"ok": False, "error": "ntfy_topic vazio em dados/config.json"})
-        ok, err = self.notifier.send("Teste do monitor de internet",
-                                     "Se você está lendo isto, os avisos estão funcionando.", ["white_check_mark"])
-        return self.json({"ok": ok, "error": err})
+            return self.json({"ok": False, "code": "disabled"})
+        lang = self.req_lang(parse_qs(u.query))
+        ok, err = self.notifier.send(tr("notify.test.title", lang), tr("notify.test.body", lang), ["white_check_mark"])
+        return self.json({"ok": ok, "code": None if ok else "send_failed", "error": err})
+
+    def req_lang(self, q):
+        lang = q.get("lang", [""])[0]
+        return lang if lang in TEXTS else LANG
 
     def static(self, path):
         if path not in STATIC_FILES:
-            return self.send(404, "não encontrado", "text/plain; charset=utf-8")
+            return self.send(404, "not found", "text/plain; charset=utf-8")
         name, ctype = STATIC_FILES[path]
         with open(os.path.join(STATIC, name), "rb") as f:
             self.send(200, f.read(), ctype)
@@ -1079,48 +1256,51 @@ def cmd_run(cfg):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     threading.Thread(target=notifier.run, daemon=True).start()
 
-    log("monitor iniciado no %s (teste a cada %ss)" % (PLATFORM, cfg["interval"]))
+    log(tr("log.started", os=PLATFORM, n=cfg["interval"]))
     if not IS_MAC:
-        log("aviso: suporte a %s é experimental e ainda não foi testado em máquina real" % PLATFORM)
-    log("painel: http://localhost:%d" % cfg["port"])
+        log(tr("log.experimental", os=PLATFORM))
+    log(tr("log.panel", url="http://localhost:%d" % cfg["port"]))
     for addr in (host, ip):
         if addr:
-            log("        http://%s:%d" % (addr, cfg["port"]))
+            log(tr("log.panel", url="http://%s:%d" % (addr, cfg["port"])))
     if notifier.enabled:
-        log("avisos: assine o tópico '%s' no app ntfy" % cfg["ntfy_topic"])
+        log(tr("log.subscribe", topic=cfg["ntfy_topic"]))
 
     signal.signal(signal.SIGTERM, lambda *a: sys.exit(0))
     try:
         monitor.run()
     except (KeyboardInterrupt, SystemExit):
         monitor.stop()
-        log("monitor parado")
+        log(tr("log.stopped"))
 
 
 def cmd_check(cfg):
     p = probe(cfg["timeout"])
     state = classify(p, p["gw_ms"] is not None)
-    ms = lambda v: "%.0f ms" % v if v is not None else "sem resposta"
+    ms = lambda v: "%.0f ms" % v if v is not None else tr("check.no_reply")
     net = network_info()
-    print("Sistema            : %s%s" % (PLATFORM, "" if IS_MAC else " (experimental, não testado em máquina real)"))
-    print("Rede               : %s" % network_label(net))
+    rows = [(tr("check.system"), PLATFORM + ("" if IS_MAC else " (%s)" % tr("check.experimental"))),
+            (tr("check.network"), network_label(net))]
     if net.get("rssi") is not None:
-        print("  sinal            : %.0f dBm  (canal %s, link %s Mbps)" % (net["rssi"], net["channel"], net["tx_rate"]))
-    print("Roteador (gateway) : %s" % (p["gw"] or "nenhum — computador sem rede"))
-    print("  ping             : %s" % (ms(p["gw_ms"]) if p["gw"] else "—"))
-    print("Internet por IP    : %s  (%s)" % (ms(p["net_ms"]), ", ".join(h for h, _ in TCP_TARGETS)))
-    print("Site por nome      : %s  (%s)" % ("ok" if p["http_ok"] else "falhou", HTTP_URL))
-    print("Diagnóstico        : %s" % ("conexão OK" if state == "ok" else "SEM INTERNET — " + CAUSES[state]))
+        rows.append(("  " + tr("check.signal"), "%.0f dBm  (%s)" % (net["rssi"], tr("check.channel", channel=net["channel"],
+                                                                                   rate=net["tx_rate"]))))
+    rows += [(tr("check.router"), p["gw"] or tr("check.no_gateway")),
+             ("  " + tr("check.ping"), ms(p["gw_ms"]) if p["gw"] else "—"),
+             (tr("check.internet"), "%s  (%s)" % (ms(p["net_ms"]), ", ".join(h for h, _ in TCP_TARGETS))),
+             (tr("check.site"), "%s  (%s)" % (tr("check.ok") if p["http_ok"] else tr("check.failed"), HTTP_URL)),
+             (tr("check.diagnosis"), tr("check.conn_ok") if state == "ok" else tr("check.no_internet", cause=cause_label(state)))]
+    width = max(len(label) for label, _ in rows)
+    for label, value in rows:
+        print("%s : %s" % (label.ljust(width), value))
     if p["gw"] and p["gw_ms"] is None and state == "ok":
-        print("\nObs.: seu roteador não responde a ping. Nesse caso o monitor não consegue separar\n"
-              "      'provedor' de 'rede local' e as quedas aparecem como 'Indeterminada'.")
+        print("\n" + tr("check.no_ping_note"))
 
 
 def print_installed(cfg, how, logs):
     host, ip = local_addresses()
-    print("Instalado. O monitor já está rodando e vai iniciar sozinho %s." % how)
-    print("Painel: http://%s:%d" % (host or ip or "localhost", cfg["port"]))
-    print("Log:    %s" % logs)
+    print(tr("install.done", how=how))
+    print(tr("install.panel", url="http://%s:%d" % (host or ip or "localhost", cfg["port"])))
+    print(tr("install.log", log=logs))
 
 
 # --- macOS: LaunchAgent + caffeinate (não deixa o Mac dormir) ---
@@ -1149,8 +1329,7 @@ def install_mac(cfg):
     home = os.path.expanduser("~")
     for protected in ("Desktop", "Documents", "Downloads", "Mesa", "Documentos"):
         if BASE.startswith(os.path.join(home, protected) + os.sep):
-            print("A pasta está em ~/%s, que o macOS bloqueia para programas em segundo plano.\n"
-                  "Mova a pasta down-again para a sua pasta pessoal (ex.: ~/down-again) e rode de novo." % protected)
+            print(tr("install.protected", folder=protected))
             return
     os.makedirs(os.path.dirname(PLIST_PATH), exist_ok=True)
     for path in (OLD_PLIST_PATH, PLIST_PATH):     # para o antigo (netmon) e a versão anterior antes de subir
@@ -1158,16 +1337,16 @@ def install_mac(cfg):
             run_cmd(["launchctl", "unload", "-w", path])
     if os.path.exists(OLD_PLIST_PATH):
         os.remove(OLD_PLIST_PATH)
-        print("Removido o início automático antigo (netmon).")
+        print(tr("install.old_removed"))
     with open(PLIST_PATH, "w", encoding="utf-8") as f:
         f.write(PLIST.format(label=PLIST_LABEL, python=xml_escape(sys.executable),
                              script=xml_escape(os.path.abspath(__file__)), base=xml_escape(BASE),
                              log=xml_escape(LOG_PATH)))
     code, _ = run_cmd(["launchctl", "load", "-w", PLIST_PATH])
     if code != 0:
-        print("Falha ao carregar o LaunchAgent. Veja: launchctl load -w %s" % PLIST_PATH)
+        print(tr("install.launchd_failed", path=PLIST_PATH))
         return
-    print_installed(cfg, "sempre que você entrar no Mac", LOG_PATH)
+    print_installed(cfg, tr("install.how_mac"), LOG_PATH)
 
 
 def uninstall_mac():
@@ -1183,7 +1362,7 @@ def uninstall_mac():
 SYSTEMD_UNIT = "down-again.service"
 SYSTEMD_PATH = os.path.expanduser("~/.config/systemd/user/" + SYSTEMD_UNIT)
 UNIT = """[Unit]
-Description=down-again - monitor de quedas de internet
+Description=down-again - internet outage monitor
 After=network-online.target
 
 [Service]
@@ -1204,8 +1383,7 @@ def systemd_quote(s):
 
 def install_linux(cfg):
     if not shutil.which("systemctl"):
-        print("systemd não encontrado. Rode em segundo plano por outro meio, por exemplo no crontab:\n"
-              "  @reboot %s %s" % (sys.executable, os.path.abspath(__file__)))
+        print(tr("install.no_systemd", cmd="%s %s" % (sys.executable, os.path.abspath(__file__))))
         return
     os.makedirs(os.path.dirname(SYSTEMD_PATH), exist_ok=True)
     with open(SYSTEMD_PATH, "w", encoding="utf-8") as f:
@@ -1214,11 +1392,10 @@ def install_linux(cfg):
     for args in (["daemon-reload"], ["enable", SYSTEMD_UNIT], ["restart", SYSTEMD_UNIT]):
         code, _ = run_cmd(["systemctl", "--user"] + args, timeout=30)
         if code != 0:
-            print("Falha em: systemctl --user %s" % " ".join(args))
+            print(tr("install.systemctl_failed", cmd=" ".join(args)))
             return
-    print_installed(cfg, "quando você entrar no sistema", "journalctl --user -u %s -f" % SYSTEMD_UNIT)
-    print("Para rodar mesmo sem ninguém logado (ex.: Raspberry Pi depois de uma falta de luz):\n"
-          "  sudo loginctl enable-linger %s" % os.environ.get("USER", "$USER"))
+    print_installed(cfg, tr("install.how_linux"), "journalctl --user -u %s -f" % SYSTEMD_UNIT)
+    print(tr("install.linger", user=os.environ.get("USER", "$USER")))
 
 
 def uninstall_linux():
@@ -1239,16 +1416,16 @@ def install_windows(cfg):
     pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
     command = '"%s" "%s"' % (pyw if os.path.exists(pyw) else sys.executable, os.path.abspath(__file__))
     if len(command) > 261:
-        print("Caminho longo demais para o Agendador de Tarefas. Mova a pasta para algo como C:\\down-again.")
+        print(tr("install.path_too_long"))
         return
     run_cmd(["schtasks", "/End", "/TN", TASK_NAME])
     code, _ = run_cmd(["schtasks", "/Create", "/TN", TASK_NAME, "/SC", "ONLOGON", "/TR", command,
                        "/RL", "LIMITED", "/F"], timeout=30)
     if code != 0:
-        print("Falha ao criar a tarefa. Tente de novo num terminal aberto como administrador.")
+        print(tr("install.task_failed"))
         return
     run_cmd(["schtasks", "/Run", "/TN", TASK_NAME])
-    print_installed(cfg, "quando você entrar no Windows", LOG_PATH)
+    print_installed(cfg, tr("install.how_win"), LOG_PATH)
 
 
 def uninstall_windows():
@@ -1262,7 +1439,7 @@ def uninstall_windows():
 
 def cmd_install(cfg):
     if not IS_MAC:
-        print("Aviso: o suporte a %s é experimental e ainda não foi testado em máquina real." % PLATFORM)
+        print(tr("install.experimental", os=PLATFORM))
     if IS_MAC:
         install_mac(cfg)
     elif IS_LINUX:
@@ -1270,19 +1447,23 @@ def cmd_install(cfg):
     elif IS_WIN:
         install_windows(cfg)
     else:
-        print("Início automático não suportado em %s. Rode: python3 down_again.py" % PLATFORM)
+        print(tr("install.unsupported", os=PLATFORM))
 
 
 def cmd_uninstall(cfg):
     removed = {"macOS": uninstall_mac, "Linux": uninstall_linux, "Windows": uninstall_windows}.get(PLATFORM, lambda: False)()
-    print("Início automático removido (os dados em %s continuam lá)." % DATA if removed else "Não estava instalado.")
+    print(tr("uninstall.done", data=DATA) if removed else tr("uninstall.none"))
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Monitor de quedas de internet com painel web.")
+    ap = argparse.ArgumentParser(description="down-again: internet outage monitor with a web dashboard.")
     ap.add_argument("cmd", nargs="?", default="run", choices=["run", "check", "install", "uninstall"])
-    ap.add_argument("--port", type=int, help="porta do painel (padrão: config.json)")
+    ap.add_argument("--port", type=int, help="dashboard port (default: config.json)")
     args = ap.parse_args()
+    # Terminal do Windows (cp1252/cp936…): caractere que não cabe vira '?' em vez de derrubar o programa
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     cfg = load_config()
     if args.port:
         cfg["port"] = args.port

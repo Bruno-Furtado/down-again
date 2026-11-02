@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # The project has no Python dependencies; only the GitHub Actions used by CI need updates.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - "type:chore"
+    commit-message:
+      prefix: "ci"

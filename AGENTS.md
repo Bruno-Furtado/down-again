@@ -48,6 +48,17 @@ These are not style preferences. Breaking any of them breaks real installs.
 - **CSP is strict** (`script-src 'self'`). No inline `<script>` blocks and no inline event handlers (`onclick=`). Put JS in `static/*.js`. Inline `style` attributes are allowed.
 - **Static files are allow-listed.** A new file in `static/` must be added to `STATIC_FILES` in `down_again.py`, or it returns 404.
 - **Never commit `dados/`.** It holds `config.json` (with the ntfy topic, which works like a password), the database and the log.
+- **Every user-visible text exists in English, Portuguese and Chinese.** See "Translations" below.
+
+## Translations
+
+The UI, the report, phone alerts, the CSV and the terminal all come in `en`, `pt` and `zh`.
+
+- **Dashboard and report:** strings live in `static/i18n.js` (a JSON-compatible `I18N` object). Static HTML uses `data-i18n`, `data-i18n-html` or `data-i18n-title`; JS uses `NM.t("key", {vars})`. The language comes from the viewer's browser or the flag menu, and changing it reloads the page. Dates and numbers use `Intl` with the matching locale.
+- **Server** (alerts, CSV, terminal): strings live in `TEXTS` in `down_again.py`, and you use `tr("key", lang, **vars)`. The language comes from `language` in `config.json` (`auto` follows the system, see `detect_language`). The CSV and the test alert follow the viewer's language via `?lang=`.
+- Add every new key to **all three languages** with the same `{placeholders}`. `tests/test_i18n.py` fails otherwise, and it also checks that every key used in HTML/JS exists.
+- Stored values are language-neutral codes (`isp`, `local`, `dns`, `unknown`; `ended_by` uses the historical codes `voltou` and `monitor parado`). Translate them only when displaying.
+- Flags are inline SVG (`NM.flag`), because flag emoji don't render on Windows.
 
 ## Security rules
 
@@ -70,13 +81,16 @@ These are not style preferences. Breaking any of them breaks real installs.
 down_again.py         monitor, notifier, statistics (summarize/glance/timeseries), HTTP handler, CLI
 static/index.html     dashboard markup           static/app.js     dashboard logic
 static/relatorio.html printable ISP report       static/report.js  report logic
-static/common.js      shared helpers (NM.*): formatting, timeline, hour bars, tooltips, storage
+static/i18n.js        UI strings for en / pt / zh
+static/common.js      shared helpers (NM.*): i18n (t, flags, language menu), formatting, timeline, hour bars, tooltips
 static/style.css      all styles; light/dark tokens on :root
 tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Windows
+tests/test_i18n.py    translation parity (same keys and placeholders in every language)
 tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
 tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
-tools/cover.html      template for docs/cover.png
-docs/                 README images
+tools/cover.html      cover template (one per language via ?lang=)
+docs/<lang>/          README images per language: cover.png, demo.gif, dashboard.png, report.png
+.github/              CI (tests on Ubuntu, macOS and Windows + Python 3.8), issue/PR templates, dependabot
 ```
 
 SQLite tables (in `SCHEMA`):
@@ -92,9 +106,9 @@ The project used to be called `netmon`. `load_config` renames an old `dados/netm
 ```bash
 python3 down_again.py check              # one diagnosis, prints and exits
 python3 down_again.py                    # monitor + dashboard on :8000 (uses ./dados)
-python3 -m unittest discover -s tests    # parser and security unit tests
+python3 -m unittest discover -s tests    # parser, translation and security tests
 python3 tools/demo.py                    # demo dashboard on :8766 with simulated data (temp dir, alerts off)
-node tools/capture.mjs                   # regenerate docs/*.png and docs/demo.gif (demo must be running)
+node tools/capture.mjs                   # regenerate docs/<lang>/ images (demo must be running; LANGS=en to limit)
 ```
 
 `DOWNAGAIN_DATA=/some/dir` moves the data folder. The demo uses this, so experiments never touch real data.
@@ -111,12 +125,16 @@ node tools/capture.mjs                   # regenerate docs/*.png and docs/demo.g
    curl -s -o /dev/null -w '%{http_code}\n' 'localhost:8766/api/summary?from=2020-01-01&to=2026-01-01'  # 400
    ```
 4. If you touched the platform layer, add or update samples in `tests/test_parsers.py`. If you have access to the real OS, also run `python3 down_again.py check` there and say so in the PR.
-5. If the UI changed in a visible way, regenerate the images with `node tools/capture.mjs`.
+5. If you added or changed text, check that `tests/test_i18n.py` passes and look at the page in all three languages.
+6. If the UI changed in a visible way, regenerate the images with `node tools/capture.mjs`.
+
+CI (`.github/workflows/ci.yml`) runs the tests on Ubuntu, macOS and Windows, plus Python 3.8, and runs `check` on each OS.
 
 ## Conventions
 
-- UI text, code comments and log messages are in **Brazilian Portuguese**. Match the surrounding code.
-- READMEs exist in three languages: `README.md` (English, primary), `README_pt-BR.md` and `README_zh-CN.md`. When you change behavior, config keys, the API or platform support, update all three.
+- Code comments are in **Brazilian Portuguese**. Match the surrounding code.
+- READMEs exist in three languages: `README.md` (English, primary), `README_pt-BR.md` and `README_zh-CN.md`, each with its own images in `docs/<lang>/`. When you change behavior, config keys, the API or platform support, update all three. Keep them short; details go inside `<details>` blocks.
+- Workflow, commit and PR conventions are in [CONTRIBUTING.md](CONTRIBUTING.md): branch `<type>/<description>`, Conventional Commits, What / Why / Notes.
 - New config keys go in `DEFAULTS` with a short comment, and in the configuration table of all three READMEs.
 - Keep `down_again.py` a single file. Add helpers near the code that uses them, in the existing section order: utilities → platform layer → probes → notifier → monitor → statistics → web server → commands.
 - Colors live as CSS variables on `:root`, with dark values under `prefers-color-scheme` and `[data-theme="dark"]`. Don't hard-code colors in JS. Use `var(--…)`.

@@ -1,19 +1,19 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box;margin:0}
-body{width:1280px;height:640px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;color:#eef1f9;
+body{width:1280px;height:640px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;color:#eef1f9;
  background:radial-gradient(700px 420px at 8% 0%,rgba(18,183,106,.28),transparent 60%),radial-gradient(800px 520px at 100% 100%,rgba(139,92,246,.30),transparent 60%),radial-gradient(600px 400px at 70% 10%,rgba(91,108,240,.22),transparent 60%),#070b14;position:relative}
 body::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(circle at 30% 50%,#000,transparent 75%)}
-.l{position:absolute;left:84px;top:92px;width:600px}
+.l{position:absolute;left:84px;top:0;bottom:0;width:620px;display:flex;flex-direction:column;justify-content:center}
 .brand{display:flex;align-items:center;gap:14px;font-weight:800;font-size:30px;letter-spacing:-.02em}
 .logo{width:52px;height:52px;border-radius:15px;background:linear-gradient(135deg,#5b6cf0,#8b5cf6);display:grid;place-items:center;box-shadow:0 12px 30px -8px #5b6cf0}
 .logo svg{width:30px;height:30px}
-h1{font-size:60px;line-height:1.04;letter-spacing:-.035em;font-weight:800;margin-top:40px}
+h1{font-size:58px;line-height:1.06;letter-spacing:-.035em;font-weight:800;margin-top:34px}
 h1 em{font-style:normal;background:linear-gradient(90deg,#34d399,#60a5fa 55%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
-p{font-size:21px;line-height:1.45;color:#a3acc2;margin-top:22px;max-width:540px}
-.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px;max-width:560px}
+p{font-size:20px;line-height:1.45;color:#a3acc2;margin-top:20px;max-width:560px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;max-width:580px}
 .chip{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:15px;color:#dfe4f2}
 .chip i{width:8px;height:8px;border-radius:50%;background:var(--c)}
-.pulse{position:absolute;left:84px;bottom:56px;display:flex;align-items:center;gap:10px;font-size:15px;color:#7d879f}
+.pulse{display:flex;align-items:center;gap:10px;font-size:15px;color:#7d879f;margin-top:30px}
 .pulse b{width:10px;height:10px;border-radius:50%;background:#12b76a;box-shadow:0 0 0 5px rgba(18,183,106,.2),0 0 18px #12b76a}
 .phone{position:absolute;width:262px;border-radius:40px;padding:9px;background:#0d1220;border:1px solid rgba(255,255,255,.14);box-shadow:0 40px 80px -30px rgba(0,0,0,.85),0 0 0 1px rgba(0,0,0,.4)}
 .phone img{display:block;width:100%;border-radius:32px}
@@ -22,17 +22,30 @@ p{font-size:21px;line-height:1.45;color:#a3acc2;margin-top:22px;max-width:540px}
 </style></head><body>
 <div class="l">
   <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg></span>down-again</div>
-  <h1>Internet <em>down again?</em><br>Now you have proof.</h1>
-  <p>A zero-dependency outage monitor for an always-on Mac. Live dashboard on your phone, outage timeline, and a report your ISP can't argue with.</p>
-  <div class="chips">
-    <span class="chip"><i style="--c:#12b76a"></i>Live status</span>
-    <span class="chip"><i style="--c:#f04438"></i>ISP vs. Wi-Fi diagnosis</span>
-    <span class="chip"><i style="--c:#5b6cf0"></i>PDF &amp; CSV report</span>
-    <span class="chip"><i style="--c:#f79009"></i>Phone alerts</span>
-    <span class="chip"><i style="--c:#a274f2"></i>Python stdlib only</span>
-  </div>
+  <h1 id="h1"></h1>
+  <p id="p"></p>
+  <div class="chips" id="chips"></div>
+  <div class="pulse"><b></b>macOS · Linux · Windows · Python 3.8+ · MIT</div>
 </div>
-<div class="pulse"><b></b>macOS · Python 3.8+ · MIT</div>
 <div class="phone p1"><img src="mobile-light.png"></div>
 <div class="phone p2"><img src="mobile-dark.png"></div>
+<script>
+// Capa de cada idioma (tools/capture.mjs abre cover.html?lang=en|pt|zh).
+const T = {
+  en: { h1: "Internet <em>down again?</em><br>Now you have proof.",
+        p: "A zero-dependency outage monitor for any always-on computer. Live dashboard on your phone, outage timeline and a report your ISP can't argue with.",
+        chips: ["Live status", "ISP or Wi-Fi?", "PDF & CSV report", "Phone alerts", "Python stdlib only"] },
+  pt: { h1: "<em>Caiu de novo?</em><br>Agora você tem prova.",
+        p: "Monitor de quedas para qualquer computador ligado 24h. Painel ao vivo no celular, linha do tempo e um relatório que o provedor não consegue contestar.",
+        chips: ["Status ao vivo", "Provedor ou Wi-Fi?", "Relatório PDF e CSV", "Avisos no celular", "Só Python puro"] },
+  zh: { h1: "网络<em>又断了？</em><br>现在你有证据了。",
+        p: "零依赖的断线监控工具，适用于任何长期开机的电脑。手机实时面板、断线时间线，以及让运营商无法反驳的报告。",
+        chips: ["实时状态", "运营商还是 Wi-Fi？", "PDF 和 CSV 报告", "手机通知", "仅用 Python 标准库"] },
+};
+const t = T[new URLSearchParams(location.search).get("lang")] || T.en;
+const colors = ["#12b76a", "#f04438", "#5b6cf0", "#f79009", "#a274f2"];
+document.getElementById("h1").innerHTML = t.h1;
+document.getElementById("p").textContent = t.p;
+document.getElementById("chips").innerHTML = t.chips.map((c, i) => `<span class="chip"><i style="--c:${colors[i]}"></i>${c}</span>`).join("");
+</script>
 </body></html>

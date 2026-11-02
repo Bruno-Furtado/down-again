@@ -69,17 +69,20 @@ small { font-size: 12.5px; }
 .wifi.off circle { fill: var(--down); stroke: none; }
 
 /* menu de tema */
-.theme-wrap { position: relative; }
+.menu-wrap { position: relative; }
 .menu { position: absolute; right: 0; top: 44px; z-index: 30; min-width: 230px; padding: 6px; display: none;
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .35); }
 .menu.on { display: block; }
-.menu button { display: grid; grid-template-columns: 18px 1fr 14px; gap: 10px; align-items: center; width: 100%; padding: 8px 10px;
+.menu button { display: grid; grid-template-columns: auto 1fr 14px; gap: 10px; align-items: center; width: 100%; padding: 8px 10px;
   border: 0; background: transparent; border-radius: 9px; cursor: pointer; text-align: left; font-size: 14px; }
 .menu button:hover { background: var(--surface-2); }
 .menu button small { display: block; color: var(--muted); font-size: 12px; }
 .menu svg { width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .menu button.on { color: var(--accent); }
 .menu button.on svg { stroke: var(--accent); }
+/* bandeiras (SVG próprio: emoji de bandeira não aparece no Windows) */
+svg.flag, .icon-btn svg.flag, .menu svg.flag { width: 22px; height: 15px; stroke: none; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+.menu button.on svg.flag { stroke: none; }
 
 /* cartões */
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 20px; }
