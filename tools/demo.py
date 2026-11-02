@@ -77,6 +77,28 @@ def simulate(app, seed=7):
         app.time, app.probe, app.network_info = real
 
 
+def simulate_speedtests(app, seed=3):
+    """Uma semana de testes a cada 4 horas: ~600/300 Mbps, mais lento à noite, alguns bem abaixo do plano."""
+    rnd = random.Random(seed)
+    db = app.connect()
+    end, t = time.time(), time.time() - 7 * DAY
+    while t < end - 600:
+        evening = 19 <= time.localtime(t).tm_hour <= 23
+        factor = rnd.uniform(0.15, 0.35) if rnd.random() < 0.1 else rnd.uniform(0.6, 0.85) if evening else rnd.uniform(0.85, 1.02)
+        db.execute("INSERT INTO speedtests(ts, down_mbps, up_mbps, ping_ms, jitter_ms, error, manual) VALUES(?,?,?,?,?,?,0)",
+                   (t, 600 * factor, 300 * min(1.0, factor + rnd.uniform(-0.05, 0.08)), rnd.gauss(9, 2), abs(rnd.gauss(1.5, 0.8)), None))
+        t += 4 * 3600 + rnd.uniform(-20, 20)
+    db.commit()
+    db.close()
+
+
+def fake_speedtest(cfg):
+    """'Testar agora' na demonstração: números simulados, sem gastar a rede de quem está testando."""
+    time.sleep(4)
+    return {"ts": time.time(), "down": random.uniform(540, 620), "up": random.uniform(270, 310),
+            "ping": random.uniform(7, 11), "jitter": random.uniform(0.5, 2.5), "error": None}
+
+
 DEMO_WIFI = {"iface": "en0", "port": "Wi-Fi", "kind": "wifi", "ssid": "Casa_5G",
              "rssi": -54.0, "noise": -92.0, "channel": "149", "tx_rate": 866.0}
 
@@ -97,13 +119,15 @@ def main():
 
     print("simulando 7 dias em %s ..." % data, flush=True)
     print("%d quedas geradas" % simulate(app), flush=True)
+    simulate_speedtests(app)
 
     # servidor real, com Wi-Fi e nome fictícios e avisos desligados
     app.network_info = lambda: dict(DEMO_WIFI)
     app.local_addresses = lambda: ("balboa.local", "192.168.0.56")
     app.Notifier.send = lambda self, *a: (False, "desligado na demonstração")
+    app.run_speedtest = fake_speedtest
     cfg = app.load_config()
-    cfg.update(port=args.port, ntfy_topic="down-again-demo")
+    cfg.update(port=args.port, ntfy_topic="down-again-demo", plan_down_mbps=600, plan_up_mbps=300)
     app.cmd_run(cfg)
 
 

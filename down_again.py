@@ -70,6 +70,10 @@ DEFAULTS = {
     "ntfy_topic": "",              # gerado na primeira execução; "" desativa
     "notify_min_seconds": 0,       # só avisa quedas com pelo menos N segundos
     "notify_monitor_gap_minutes": 5,
+    "speedtest_minutes": 240,      # teste de velocidade a cada N minutos (240 = 6 por dia); 0 desliga
+    "speedtest_seconds": 5,        # duração de cada sentido (download e upload)
+    "plan_down_mbps": 0,           # plano contratado, para comparar (0 = não informado)
+    "plan_up_mbps": 0,
 }
 
 # IPs fixos (sem depender de DNS) e uma URL por nome (exercita DNS + HTTP).
@@ -97,6 +101,7 @@ TEXTS = {
         "log.experimental": "warning: {os} support is experimental and has not been tested on a real machine",
         "log.panel": "dashboard: {url}", "log.subscribe": "alerts: subscribe to the topic '{topic}' in the ntfy app",
         "log.stopped": "monitor stopped",
+        "log.speed": "speed test: {down} Mbps down, {up} Mbps up, ping {ping} ms", "log.speed_failed": "speed test failed: {err}",
         "http.host": "Host not allowed. To use another name, add it to allowed_hosts in dados/config.json.",
         "check.system": "System", "check.experimental": "experimental, not tested on a real machine",
         "check.network": "Network", "check.signal": "signal", "check.router": "Router (gateway)",
@@ -141,6 +146,7 @@ TEXTS = {
         "log.experimental": "aviso: o suporte a {os} é experimental e ainda não foi testado em máquina real",
         "log.panel": "painel: {url}", "log.subscribe": "avisos: assine o tópico '{topic}' no app ntfy",
         "log.stopped": "monitor parado",
+        "log.speed": "teste de velocidade: {down} Mbps de download, {up} Mbps de upload, ping {ping} ms", "log.speed_failed": "teste de velocidade falhou: {err}",
         "http.host": "Host não permitido. Para usar outro nome, inclua-o em allowed_hosts no dados/config.json.",
         "check.system": "Sistema", "check.experimental": "experimental, não testado em máquina real",
         "check.network": "Rede", "check.signal": "sinal", "check.router": "Roteador (gateway)",
@@ -185,6 +191,7 @@ TEXTS = {
         "log.experimental": "提示：{os} 支持仍为实验性，尚未在真机上测试",
         "log.panel": "面板：{url}", "log.subscribe": "通知：在 ntfy 应用中订阅主题“{topic}”",
         "log.stopped": "监控已停止",
+        "log.speed": "测速：下载 {down} Mbps，上传 {up} Mbps，延迟 {ping} ms", "log.speed_failed": "测速失败：{err}",
         "http.host": "不允许的 Host。如需使用其他名称，请将其加入 dados/config.json 的 allowed_hosts。",
         "check.system": "系统", "check.experimental": "实验性，尚未在真机上测试",
         "check.network": "网络", "check.signal": "信号", "check.router": "路由器（网关）",
@@ -251,6 +258,9 @@ CREATE INDEX IF NOT EXISTS outages_start ON outages(start_ts);
 CREATE TABLE IF NOT EXISTS gaps(start_ts REAL, end_ts REAL);
 CREATE TABLE IF NOT EXISTS sessions(id INTEGER PRIMARY KEY, start_ts REAL, end_ts REAL);
 CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY, ts REAL, title TEXT, body TEXT, tag TEXT, sent_ts REAL);
+CREATE TABLE IF NOT EXISTS speedtests(ts REAL, down_mbps REAL, up_mbps REAL, ping_ms REAL, jitter_ms REAL, error TEXT,
+                                      manual INTEGER);
+CREATE INDEX IF NOT EXISTS speedtests_ts ON speedtests(ts);
 """
 
 
@@ -737,6 +747,195 @@ class Notifier:
 
 
 # --------------------------------------------------------------------------
+# teste de velocidade (servidores da Cloudflare, medido com o curl do sistema)
+#
+# O curl é escrito em C: alcança planos de 500+ Mbps num Mac antigo, onde o Python não chega,
+# e usa os certificados do sistema. Várias conexões em paralelo, como os sites de teste fazem.
+
+SPEED_HOST = "speed.cloudflare.com"
+SPEED_DOWN_BYTES = 90000000      # a Cloudflare recusa pedidos de 100 MB ou mais
+SPEED_STREAMS = 6
+
+
+def curl_bin():
+    if IS_WIN:
+        return shutil.which("curl")       # curl.exe vem com o Windows 10+
+    return "/usr/bin/curl" if os.path.exists("/usr/bin/curl") else shutil.which("curl")
+
+
+def parse_curl_rate(text):
+    """Saída de -w '%{size_*} %{time_total}' -> (bytes, segundos)."""
+    parts = (text or "").strip().split()
+    try:
+        return int(float(parts[0])), float(parts[1].replace(",", "."))
+    except (IndexError, ValueError):
+        return 0, 0.0
+
+
+def ping_stats(samples):
+    """Latências (ms) -> (mediana, jitter = média das variações entre medições seguidas)."""
+    if not samples:
+        return None, None
+    ordered = sorted(samples)
+    median = ordered[len(ordered) // 2]
+    jitter = sum(abs(a - b) for a, b in zip(samples, samples[1:])) / (len(samples) - 1) if len(samples) > 1 else 0.0
+    return median, jitter
+
+
+def measure_ping(count=10):
+    addr = socket.getaddrinfo(SPEED_HOST, 443, socket.AF_INET, socket.SOCK_STREAM)[0][4]
+    samples = []
+    for _ in range(count):
+        t = time.time()
+        try:
+            socket.create_connection(addr, 3).close()
+            samples.append((time.time() - t) * 1000)
+        except OSError:
+            pass
+        time.sleep(0.05)
+    return ping_stats(samples)
+
+
+def measure_throughput(direction, seconds, streams=SPEED_STREAMS):
+    """Mbps somando conexões paralelas; cada uma vale bytes/tempo dela (mesmo se terminar antes)."""
+    curl = curl_bin()
+    if not curl:
+        raise RuntimeError("curl not found")
+    kw = {"creationflags": 0x08000000} if IS_WIN else {}
+    cmd = [curl, "-q", "-s", "-o", os.devnull, "--connect-timeout", "5", "--max-time", str(seconds)]
+    if direction == "down":
+        cmd += ["-w", "%{size_download} %{time_total}", "https://%s/__down?bytes=%d" % (SPEED_HOST, SPEED_DOWN_BYTES)]
+        procs = [subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **kw) for _ in range(streams)]
+    else:
+        # upload contínuo pelo stdin: nada de arquivo grande no disco
+        cmd += ["-X", "POST", "-T", "-", "-H", "Content-Type: application/octet-stream",
+                "-w", "%{size_upload} %{time_total}", "https://%s/__up" % SPEED_HOST]
+        procs = [subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **kw)
+                 for _ in range(streams)]
+
+        def feed(proc):
+            chunk = b"\0" * 65536
+            try:
+                while proc.poll() is None:
+                    proc.stdin.write(chunk)
+            except (OSError, ValueError):
+                pass                           # o curl terminou (tempo esgotado): pipe fechado
+
+        for proc in procs:
+            threading.Thread(target=feed, args=(proc,), daemon=True).start()
+    bits_per_second = 0.0
+    for proc in procs:
+        try:
+            proc.wait(timeout=seconds + 15)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        size, took = parse_curl_rate(proc.stdout.read().decode("ascii", "replace"))
+        if took > 0:
+            bits_per_second += size * 8 / took
+    return bits_per_second / 1e6
+
+
+def run_speedtest(cfg):
+    result = {"ts": time.time(), "down": None, "up": None, "ping": None, "jitter": None, "error": None}
+    try:
+        result["ping"], result["jitter"] = measure_ping()
+        seconds = max(2, int(cfg["speedtest_seconds"]))
+        result["down"] = measure_throughput("down", seconds) or None
+        result["up"] = measure_throughput("up", seconds) or None
+        if result["down"] is None:
+            result["error"] = "no data"
+    except Exception as e:   # rede fora, curl ausente, DNS…: fica registrado como teste com falha
+        result["error"] = str(e) or e.__class__.__name__
+    return result
+
+
+class SpeedTester:
+    """Roda o teste a cada speedtest_minutes (e sob demanda), com a detecção de quedas pausada."""
+
+    def __init__(self, cfg, monitor):
+        self.cfg, self.monitor = cfg, monitor
+        self.wake = threading.Event()
+        self.running = False
+        self.manual = False
+        self.next_ts = None
+
+    @property
+    def period(self):
+        return max(0, float(self.cfg.get("speedtest_minutes") or 0)) * 60
+
+    def trigger(self):
+        if self.running:
+            return False
+        self.manual = True
+        self.wake.set()
+        return True
+
+    def status(self):
+        db = connect()
+        try:
+            row = db.execute("SELECT ts, down_mbps, up_mbps, ping_ms, jitter_ms, error FROM speedtests "
+                             "ORDER BY ts DESC LIMIT 1").fetchone()
+        finally:
+            db.close()
+        last = dict(zip(("ts", "down", "up", "ping", "jitter", "error"), row)) if row else None
+        return {"running": self.running, "next": self.next_ts, "enabled": self.period > 0, "last": last}
+
+    def run(self):
+        db = connect()
+        last = db.execute("SELECT MAX(ts) FROM speedtests").fetchone()[0] or 0
+        # primeiro teste uns minutos depois de ligar, para não competir com a inicialização
+        self.next_ts = max(time.time() + 120, last + self.period) if self.period else None
+        while True:
+            self.wake.wait(max(1, self.next_ts - time.time()) if self.next_ts else None)
+            self.wake.clear()
+            manual, self.manual = self.manual, False
+            if not manual and (not self.next_ts or time.time() < self.next_ts):
+                continue
+            st = self.monitor.get_status()
+            if st["state"] != "up" or st["pending"]:
+                # sem internet o teste não diz nada: tenta de novo daqui a 5 minutos
+                if not manual:
+                    self.next_ts = time.time() + 300
+                continue
+            self.running = True
+            self.monitor.paused = True             # o teste satura a conexão: não é queda
+            try:
+                r = run_speedtest(self.cfg)
+            finally:
+                self.monitor.paused = False
+                self.running = False
+            db.execute("INSERT INTO speedtests(ts, down_mbps, up_mbps, ping_ms, jitter_ms, error, manual) "
+                       "VALUES(?,?,?,?,?,?,?)", (r["ts"], r["down"], r["up"], r["ping"], r["jitter"], r["error"], int(manual)))
+            db.commit()
+            if r["error"]:
+                log(tr("log.speed_failed", err=r["error"]))
+            else:
+                log(tr("log.speed", down="%.0f" % r["down"], up="%.0f" % (r["up"] or 0), ping="%.0f" % (r["ping"] or 0)))
+            self.next_ts = time.time() + self.period if self.period else None
+
+
+def parse_plan(body):
+    """Plano contratado enviado pelo painel: {"down": Mbps, "up": Mbps}; 0 = não informado."""
+    data = json.loads(body.decode("utf-8") or "{}")
+    plan = {}
+    for key in ("down", "up"):
+        value = float(data.get(key) or 0)
+        if not 0 <= value <= 100000:
+            raise ValueError("plan out of range")
+        plan[key] = round(value, 1)
+    return plan
+
+
+def save_config(cfg):
+    """Grava o config.json de forma atômica, mantendo só o dono com acesso."""
+    tmp = CONFIG_PATH + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, CONFIG_PATH)
+
+
+# --------------------------------------------------------------------------
 # monitor
 
 class Monitor:
@@ -751,6 +950,7 @@ class Monitor:
         self.last_ts = None
         self.last_prune = 0
         self.net, self.net_ts = None, 0
+        self.paused = False                       # True durante o teste de velocidade
         self.db = connect()
 
         now = time.time()
@@ -775,6 +975,13 @@ class Monitor:
 
     def run(self):
         while True:
+            if self.paused:
+                # teste de velocidade em andamento: a conexão está saturada de propósito.
+                # Conta como monitorado (não vira "não monitorado" nem queda).
+                if self.last_ts is not None:
+                    self.last_ts = time.time()
+                time.sleep(1)
+                continue
             t0 = time.time()
             try:
                 self.step()
@@ -1038,6 +1245,33 @@ def glance():
                      "ongoing": last[1] is None} if last else None}
 
 
+def speed_stats(t0, t1, cfg):
+    """Testes de velocidade do período, médias e comparação com o plano contratado."""
+    db = connect()
+    try:
+        rows = db.execute("SELECT ts, down_mbps, up_mbps, ping_ms, jitter_ms, error FROM speedtests "
+                          "WHERE ts >= ? AND ts < ? ORDER BY ts", (t0, t1)).fetchall()
+    finally:
+        db.close()
+    tests = [dict(zip(("ts", "down", "up", "ping", "jitter", "error"), r)) for r in rows]
+    ok = [x for x in tests if not x["error"] and x["down"]]
+    plan_down, plan_up = float(cfg.get("plan_down_mbps") or 0), float(cfg.get("plan_up_mbps") or 0)
+
+    def agg(key):
+        values = [x[key] for x in ok if x[key] is not None]
+        return {"avg": sum(values) / len(values), "min": min(values), "max": max(values)} if values else None
+
+    return {
+        "tests": tests, "count": len(ok), "failed": len(tests) - len(ok),
+        "down": agg("down"), "up": agg("up"), "ping": agg("ping"),
+        "plan": {"down": plan_down, "up": plan_up},
+        # referência usual: 40% do contratado no instantâneo, 80% na média
+        "below40": sum(1 for x in ok if plan_down and x["down"] < 0.4 * plan_down),
+        "minutes": cfg.get("speedtest_minutes"), "seconds": cfg.get("speedtest_seconds"),
+        "streams": SPEED_STREAMS, "server": SPEED_HOST,
+    }
+
+
 def timeseries(hours):
     """Latência/falhas/sinal agregados em ~360 pontos para o gráfico ao vivo."""
     now = time.time()
@@ -1151,6 +1385,8 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "down-again"
     sys_version = ""
     last_test = 0
+    last_speed = 0
+    speed = None                 # SpeedTester (preenchido em cmd_run)
     test_lock = threading.Lock()
 
     def log_message(self, *args):
@@ -1186,7 +1422,10 @@ class Handler(BaseHTTPRequestHandler):
                 st = self.monitor.get_status()
                 st["now"] = time.time()
                 st["interval"] = self.cfg["interval"]
+                st["speed"] = self.speed.status() if self.speed else None
                 return self.json(st)
+            if u.path == "/api/speedtests":
+                return self.json(speed_stats(*(parse_range(q) + (self.cfg,))))
             if u.path == "/api/summary":
                 return self.json(summarize(*parse_range(q)))
             if u.path == "/api/glance":
@@ -1207,6 +1446,8 @@ class Handler(BaseHTTPRequestHandler):
                     "ntfy_server": self.cfg["ntfy_server"], "ntfy_topic": self.cfg["ntfy_topic"],
                     "host": self.info.get("host"), "ip": self.info.get("ip"), "port": self.cfg["port"],
                     "platform": PLATFORM, "language": LANG,
+                    "speedtest_minutes": self.cfg["speedtest_minutes"], "speedtest_seconds": self.cfg["speedtest_seconds"],
+                    "plan_down_mbps": self.cfg["plan_down_mbps"], "plan_up_mbps": self.cfg["plan_up_mbps"],
                 })
         except (ValueError, OverflowError, OSError):
             return self.json({"error": "invalid period (use YYYY-MM-DD, up to %d days)" % MAX_RANGE_DAYS}, 400)
@@ -1216,12 +1457,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self.check_host():
             return
         u = urlparse(self.path)
-        if u.path != "/api/test-notify":
+        if u.path not in ("/api/test-notify", "/api/speedtest", "/api/plan"):
             return self.send(404, "not found", "text/plain; charset=utf-8")
         # Cabeçalho próprio força preflight de CORS (que não respondemos): outro site não consegue disparar.
         # As respostas trazem um código; o painel mostra a mensagem no idioma de quem está vendo.
         if self.headers.get("X-Down-Again") != "1":
             return self.json({"ok": False, "code": "refused"}, 403)
+        if u.path == "/api/speedtest":
+            return self.post_speedtest()
+        if u.path == "/api/plan":
+            return self.post_plan()
         with Handler.test_lock:
             wait = 30 - (time.time() - Handler.last_test)
             if wait > 0:
@@ -1232,6 +1477,32 @@ class Handler(BaseHTTPRequestHandler):
         lang = self.req_lang(parse_qs(u.query))
         ok, err = self.notifier.send(tr("notify.test.title", lang), tr("notify.test.body", lang), ["white_check_mark"])
         return self.json({"ok": ok, "code": None if ok else "send_failed", "error": err})
+
+    def post_speedtest(self):
+        if not self.speed:
+            return self.json({"ok": False, "code": "disabled"})
+        with Handler.test_lock:
+            wait = 60 - (time.time() - Handler.last_speed)
+            if wait > 0:
+                return self.json({"ok": False, "code": "cooldown", "wait": int(wait) + 1}, 429)
+            if self.monitor.get_status()["state"] != "up":
+                return self.json({"ok": False, "code": "offline"})
+            if not self.speed.trigger():
+                return self.json({"ok": False, "code": "running"})
+            Handler.last_speed = time.time()
+        return self.json({"ok": True})
+
+    def post_plan(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 < length <= 1024:
+                raise ValueError("bad length")
+            plan = parse_plan(self.rfile.read(length))
+        except (ValueError, TypeError, AttributeError):
+            return self.json({"ok": False, "code": "invalid"}, 400)
+        self.cfg["plan_down_mbps"], self.cfg["plan_up_mbps"] = plan["down"], plan["up"]
+        save_config(self.cfg)
+        return self.json({"ok": True, "plan": plan})
 
     def req_lang(self, q):
         lang = q.get("lang", [""])[0]
@@ -1263,6 +1534,8 @@ def cmd_run(cfg):
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     threading.Thread(target=notifier.run, daemon=True).start()
+    Handler.speed = SpeedTester(cfg, monitor)
+    threading.Thread(target=Handler.speed.run, daemon=True).start()
 
     log(tr("log.started", os=PLATFORM, n=cfg["interval"]))
     if not IS_MAC:

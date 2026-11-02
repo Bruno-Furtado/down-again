@@ -21,6 +21,7 @@ O **down-again** vigia a internet de casa a partir de qualquer computador ligado
 - 🟢 **Status ao vivo**: online ou fora do ar, com cronômetro e causa provável.
 - 🔍 **De quem é a culpa**: provedor, seu Wi-Fi ou DNS.
 - 📊 **Histórico**: linha do tempo por dia e quedas em 24h, 7 e 30 dias.
+- 🚀 **Teste de velocidade**: 6 vezes por dia, comparado com o plano que você paga.
 - 🧾 **Relatório para o provedor**: imprimir ou salvar em PDF, mais CSV para planilhas.
 - 📱 **Avisos no celular**: uma mensagem assim que a internet volta.
 - 📲 **Funciona como app**: adicione à tela de início do celular ou leia o QR code do painel.
@@ -108,8 +109,13 @@ O tempo em que o computador fica desligado ou dormindo é marcado como *não mon
 | `ntfy_server` | `https://ntfy.sh` | Seu próprio servidor ntfy, se tiver |
 | `notify_min_seconds` | `0` | Só avisa quedas com pelo menos esse tempo |
 | `keep_samples_days` | `120` | Dias de testes brutos guardados (as quedas ficam para sempre) |
+| `speedtest_minutes` | `240` | Intervalo do teste de velocidade, em minutos (240 = 6 por dia). `0` desliga |
+| `speedtest_seconds` | `5` | Duração de cada sentido (download e upload) |
+| `plan_down_mbps` / `plan_up_mbps` | `0` | Seu plano, para comparar cada teste (também dá para informar no painel) |
 
 Reinicie o down-again depois de editar.
+
+**O teste de velocidade consome dados.** Cada teste usa 6 conexões em paralelo com a Cloudflare (`speed.cloudflare.com`) por 5 s em cada sentido. Num plano de 500 Mbps, são uns 500 MB por teste, ou cerca de 90 GB por mês com 6 testes por dia. Ajuste o `speedtest_minutes` para testar com mais ou menos frequência. A detecção de quedas fica pausada durante o teste, e as medições são indicativas: a oficial da Anatel é feita pelo app Brasil Banda Larga.
 </details>
 
 <details>

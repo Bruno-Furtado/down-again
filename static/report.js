@@ -23,8 +23,9 @@ $("#apply").onclick = () => { history.replaceState(null, "", `?from=${$("#d-from
 async function load() {
   const qs = `from=${$("#d-from").value}&to=${$("#d-to").value}`;
   $("#csv").href = `/api/outages.csv?${qs}&lang=${NM.lang}`;
-  const [s, cfg] = await Promise.all([NM.get("/api/summary?" + qs), NM.get("/api/config")]);
+  const [s, cfg, sp] = await Promise.all([NM.get("/api/summary?" + qs), NM.get("/api/config"), NM.get("/api/speedtests?" + qs)]);
   render(s, cfg);
+  renderSpeed(sp);
 }
 
 function render(s, cfg) {
@@ -78,6 +79,27 @@ function render(s, cfg) {
     : `<p class="muted2">${t("r.unmonNone")}</p>`;
 
   $("#foot").textContent = t("r.footer", { dt: NM.dtFull(s.now), host: cfg.host ? ` (${cfg.host})` : "" });
+}
+
+// velocidade: médias, mínimos e comparação com o plano contratado
+function renderSpeed(sp) {
+  const mb = (v) => (v == null ? "—" : `${NM.num(v, v < 10 ? 1 : 0)} Mbps`);
+  const ofPlan = (v, plan) => (plan && v != null ? t("r.speedPct", { v: mb(v), p: NM.pct(v / plan, 0) }) : mb(v));
+  $("#speed-wrap").hidden = !sp.count && !sp.minutes;
+  if (!sp.count) { $("#speed").innerHTML = `<p class="muted2">${t("r.speedNone")}</p>`; return; }
+  const plan = sp.plan, rows = [
+    [t("r.speedTests"), String(sp.count)],
+    [t("r.speedDown"), `${ofPlan(sp.down.avg, plan.down)} / ${ofPlan(sp.down.min, plan.down)}`],
+    [t("r.speedUp"), sp.up ? `${ofPlan(sp.up.avg, plan.up)} / ${ofPlan(sp.up.min, plan.up)}` : "—"],
+    [t("r.speedPing"), sp.ping ? NM.ms(sp.ping.avg) : "—"],
+  ];
+  if (plan.down) rows.push([t("r.speedPlan"), `${mb(plan.down)} / ${mb(plan.up || null)}`], [t("r.speedBelow"), String(sp.below40)]);
+  let html = `<table class="sum">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${esc(b)}</td></tr>`).join("")}</table>`;
+  if (plan.down) html += `<div class="hl">${t("r.speedHl", { avg: mb(sp.down.avg), pct: NM.pct(sp.down.avg / plan.down, 0), plan: mb(plan.down), n: sp.below40 })}</div>`;
+  $("#speed").innerHTML = html;
+  if (sp.minutes) {
+    $("#meth").insertAdjacentHTML("beforeend", `<li>${t("r.m6", { minutes: sp.minutes, streams: sp.streams, server: esc(sp.server), seconds: sp.seconds })}</li>`);
+  }
 }
 
 load().catch(() => { $("#lead").textContent = t("r.noContact"); });

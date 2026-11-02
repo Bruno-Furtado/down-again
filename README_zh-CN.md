@@ -21,6 +21,7 @@
 - 🟢 **实时状态**：在线或断网，附带计时器和可能原因。
 - 🔍 **责任归属**：运营商、你的 Wi-Fi 还是 DNS。
 - 📊 **历史记录**：每日时间线，以及 24 小时、7 天、30 天的断线次数。
+- 🚀 **测速**：每天 6 次，并与你购买的套餐比较。
 - 🧾 **运营商报告**：可打印或保存为 PDF，并可导出 CSV 表格。
 - 📱 **手机通知**：网络恢复后立即收到消息。
 - 📲 **像应用一样使用**：添加到手机主屏幕，或扫描面板上的二维码。
@@ -108,8 +109,13 @@ python3 down_again.py install   # 撤销：python3 down_again.py uninstall
 | `ntfy_server` | `https://ntfy.sh` | 自建的 ntfy 服务器（如有） |
 | `notify_min_seconds` | `0` | 仅通知时长不低于该值的断线 |
 | `keep_samples_days` | `120` | 原始检测数据保留天数（断线记录永久保存） |
+| `speedtest_minutes` | `240` | 测速间隔（分钟，240 即每天 6 次）。`0` 表示关闭 |
+| `speedtest_seconds` | `5` | 下载和上传各测量的秒数 |
+| `plan_down_mbps` / `plan_up_mbps` | `0` | 你的套餐速度，用于比较每次测速（也可以在面板中设置） |
 
 修改后请重启 down-again。
+
+**测速会消耗流量。**每次测速使用 6 个并发连接到 Cloudflare（`speed.cloudflare.com`），下载和上传各 5 秒。在 500 Mbps 套餐下，每次约 500 MB，每天 6 次约为每月 90 GB。可以调整 `speedtest_minutes` 来增加或减少测速频率。测速期间暂停断线检测，结果仅供参考，官方测量请使用监管机构的工具。
 </details>
 
 <details>
