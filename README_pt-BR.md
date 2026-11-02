@@ -136,15 +136,6 @@ Para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
 `POST /api/test-notify` exige o cabeçalho `X-Down-Again: 1`.
 </details>
 
-## Contribuindo
-
-Pull requests são bem-vindos, principalmente de quem puder testar em Linux e Windows.
-Veja o [CONTRIBUTING.md](CONTRIBUTING.md). Agentes de IA devem ler o [AGENTS.md](AGENTS.md).
-
-## Licença
-
-[MIT](LICENSE)
-
 ---
 
 <div align="center">

@@ -136,15 +136,6 @@ ntfy 主题相当于密码。
 `POST /api/test-notify` 需要 `X-Down-Again: 1` 请求头。
 </details>
 
-## 参与贡献
-
-欢迎提交 Pull Request，尤其欢迎能在 Linux 和 Windows 上测试的贡献者。
-请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。AI 编程助手请阅读 [AGENTS.md](AGENTS.md)。
-
-## 许可证
-
-[MIT](LICENSE)
-
 ---
 
 <div align="center">

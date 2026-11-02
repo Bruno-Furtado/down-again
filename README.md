@@ -136,15 +136,6 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 `POST /api/test-notify` requires the `X-Down-Again: 1` header.
 </details>
 
-## Contributing
-
-Pull requests are welcome, especially from people who can test on Linux and Windows.
-See [CONTRIBUTING.md](CONTRIBUTING.md). AI coding agents should read [AGENTS.md](AGENTS.md).
-
-## License
-
-[MIT](LICENSE)
-
 ---
 
 <div align="center">
