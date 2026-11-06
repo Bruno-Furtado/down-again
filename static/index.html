@@ -46,8 +46,8 @@
 
   <!-- ===================== AGORA ===================== -->
   <main class="view" id="v-now">
-    <div class="now-top">
-      <div class="card status is-idle" id="status">
+    <div class="card status is-idle" id="status">
+      <div class="st-main">
         <div class="ring"><i></i></div>
         <div class="st-body">
           <div class="st-title" id="st-title" data-i18n="st.connecting"></div>
@@ -56,13 +56,11 @@
           <div class="st-sub" id="st-sub" data-i18n="st.fetching"></div>
         </div>
       </div>
-
-      <div class="card glance" id="glance">
-        <div class="gl-head">
-          <span class="gl-ic" id="gl-ic"></span>
-          <div><div class="gl-title" id="gl-title" data-i18n="loading"></div><div class="gl-sub" id="gl-sub">&nbsp;</div></div>
-        </div>
-        <div class="gl-tiles" id="gl-tiles"></div>
+      <!-- últimas 24h: faixa com as quedas e a instabilidade; toque abre o histórico -->
+      <div class="day" id="day">
+        <div class="day-h"><b data-i18n="gl.title"></b><span id="day-sum"></span></div>
+        <div class="day-track" id="day-track"></div>
+        <div class="day-ticks" id="day-ticks"></div>
       </div>
     </div>
 

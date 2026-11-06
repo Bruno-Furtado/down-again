@@ -196,37 +196,27 @@ async function pollStatus() {
 }
 
 /* ---------- últimas 24h e acontecimentos recentes ---------- */
-const GL_ICONS = {
-  ok: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>`,
-  bad: `<svg viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>`,
-};
-
 async function loadGlance() {
   try { S.gl = await NM.get("/api/glance"); renderGlance(); renderRecent(); } catch (e) { /* tenta no próximo ciclo */ }
 }
 
+// Faixa das últimas 24h dentro do status: verde = monitorado, cores = quedas, amarelo embaixo = instável.
 function renderGlance() {
   const g = S.gl;
   if (!g) return;
-  const now = nowS(), h = g.h24, last = g.last;
-  const young = g.since && now - g.since < 86400;            // monitor rodando há menos de 24h
-  setText($("#gl-title"), !h.count ? t("gl.none") : h.count === 1 ? t("gl.one") : t("gl.many", { n: h.count }));
-  const extra = g.unstable_24h ? " · " + (g.unstable_24h === 1 ? t("gl.unstableOne") : t("gl.unstableMany", { n: g.unstable_24h })) : "";
-  setText($("#gl-sub"), (last && last.ongoing ? t("gl.downNow") :
-    last ? t("gl.last", { d: ago(now - last.end) }) : young ? t("gl.monitoring", { d: ago(now - g.since) }) : t("gl.never")) + extra);
-  setClass($("#glance"), "card glance " + (h.count ? (last && last.ongoing ? "bad" : "warn") : "ok"));
-  setHTML($("#gl-ic"), GL_ICONS[h.count ? "bad" : "ok"]);
-  const tile = (label, w, period) => `<${period ? `button data-p="${period}"` : "div"} class="gl-tile">
-      <span>${label}</span><b class="${w.count ? "" : "z"}">${w.count}</b></${period ? "button" : "div"}>`;
-  setHTML($("#gl-tiles"), tile("24h", h) + tile(t("p.7d"), g.d7, "7d") + tile(t("p.30d"), g.d30, "30d"));
+  const h = g.h24, span = g.now - g.from, P = (x) => (((x - g.from) / span) * 100).toFixed(3);
+  const sum = [!h.count ? t("gl.none") : h.count === 1 ? t("gl.one") : t("gl.many", { n: h.count })];
+  if (h.count) sum.push(t("gl.offline", { d: dur(h.down_s) }));
+  if (h.unstable) sum.push(h.unstable === 1 ? t("gl.unstableOne") : t("gl.unstableMany", { n: h.unstable }));
+  setText($("#day-sum"), sum.join(" · "));
+  const seg = (cls, a, b, extra) => `<i class="${cls}" style="left:${P(a)}%;width:${P(b) - P(a)}%${extra || ""}"`;
+  const tip = (label, a, b) => esc(`<b>${esc(label)}</b> · ${dur(b - a)}<br>${NM.time(a)} → ${NM.time(b)}`);
+  setHTML($("#day-track"), g.mon.map(([a, b]) => seg("s-mon", a, b) + "></i>").join("") +
+    g.uns.map(([a, b]) => seg("s-uns", a, b) + ` data-tip="${tip(t("ev.unstableTag"), a, b)}"></i>`).join("") +
+    g.out.map(([a, b, c]) => seg("s-out", a, b, `;background:${cause(c).color}`) + ` data-tip="${tip(cause(c).label, a, b)}"></i>`).join(""));
+  setHTML($("#day-ticks"), [0, 1, 2, 3, 4].map((i) => `<span>${i === 4 ? t("gl.now") : NM.time(g.from + (span / 4) * i, false)}</span>`).join(""));
 }
-
-$("#gl-tiles").onclick = (e) => {
-  const b = e.target.closest("[data-p]");
-  if (!b) return;
-  pickPeriod(b.dataset.p);
-  location.hash = "history";
-};
+$("#day").onclick = () => { location.hash = "history"; };
 
 // Uma linha por acontecimento: queda, instabilidade ou troca de IP público.
 function eventRow(x, maxDur) {
@@ -755,7 +745,7 @@ pollStatus();
 loadGlance();
 setInterval(live(pollStatus), 3000);
 setInterval(live(loadGlance), 30000);
-setInterval(live(() => { renderHero(); renderGlance(); }), 1000);
+setInterval(live(renderHero), 1000);
 setInterval(live(() => { if (S.tab === "history" || S.tab === "report") loadSummary(); }), 60000);
 setInterval(live(() => { if (S.tab === "now") loadSeries(); }), 30000);
 setInterval(live(() => { if (S.tab === "settings") loadConfig(); }), 30000);

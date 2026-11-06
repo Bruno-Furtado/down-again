@@ -110,6 +110,21 @@ class InstabilityTests(MonitorBase):
         self.assertTrue(any(d["uns"] for d in s["days"]))
 
 
+class GlanceTests(MonitorBase):
+    def test_last_24h_strip(self):
+        self.feed([GOOD] * 30 + [LOST] * 6 + [GOOD] * 30 + [400.0] * 6 + [GOOD] * 14)
+        real = da.time.time
+        da.time.time = lambda: self.clock[0]
+        g = da.glance()
+        da.time.time = real
+        self.assertEqual((g["h24"]["count"], g["h24"]["unstable"]), (1, 1))
+        self.assertEqual(len(g["out"]), 1)
+        self.assertEqual(g["out"][0][2], "isp")
+        self.assertEqual(len(g["uns"]), 1)
+        self.assertTrue(g["mon"])
+        self.assertTrue(all(g["from"] <= a < b <= g["now"] for a, b, *_ in g["mon"] + g["out"] + g["uns"]))
+
+
 class PublicIpTests(MonitorBase):
     def test_parse_trace(self):
         text = "fl=12\nh=1.1.1.1\nip=203.0.113.7\nts=1\nloc=BR\n"

@@ -1579,16 +1579,18 @@ def summarize(t0, t1):
 
 
 def glance():
-    """Respostas rápidas para o topo do painel: últimas 24h corridas; 7 e 30 dias contados da
-    meia-noite, iguais aos botões de período do resumo (o número bate ao tocar no quadradinho)."""
+    """Topo da aba Agora: a faixa das últimas 24h corridas (monitorado, quedas e instabilidade)
+    e os acontecimentos recentes."""
     now = time.time()
-    today = datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0, microsecond=0)
-    start_7d = (today - timedelta(days=6)).timestamp()
-    start_30d = (today - timedelta(days=29)).timestamp()
+    t0 = now - 86400
     db = connect()
     try:
+        sessions = db.execute("SELECT start_ts, end_ts FROM sessions WHERE end_ts > ?", (t0,)).fetchall()
+        gaps = db.execute("SELECT start_ts, end_ts FROM gaps WHERE end_ts > ?", (t0,)).fetchall()
         rows = db.execute("SELECT start_ts, COALESCE(end_ts, ?), cause FROM outages WHERE COALESCE(end_ts, ?) > ?",
-                          (now, now, min(start_30d, now - 86400))).fetchall()
+                          (now, now, t0)).fetchall()
+        uns = db.execute("SELECT start_ts, COALESCE(end_ts, ?) FROM events WHERE kind='unstable' AND COALESCE(end_ts, ?) > ?",
+                         (now, now, t0)).fetchall()
         last = db.execute("SELECT start_ts, end_ts, cause FROM outages ORDER BY start_ts DESC LIMIT 1").fetchone()
         first = db.execute("SELECT MIN(start_ts) FROM sessions").fetchone()[0]
         # acontecimentos recentes: quedas, instabilidade e trocas de IP (a troca ligada a uma queda
@@ -1600,18 +1602,14 @@ def glance():
         recent += [x for x in load_events(db, 0, 0, now, latest=24)
                    if not (x["kind"] == "ip_change" and x["data"].get("outage"))]
         recent.sort(key=lambda x: x["end"] if x["kind"] == "ip_change" else x["start"], reverse=True)
-        unstable_24h = db.execute("SELECT COUNT(*) FROM events WHERE kind='unstable' AND COALESCE(end_ts, ?) > ?",
-                                  (now, now - 86400)).fetchone()[0]
     finally:
         db.close()
-
-    def window(t0):
-        hit = [(max(s, t0), e, c) for s, e, c in rows if e > t0]
-        return {"count": len(hit), "down_s": sum(e - s for s, e, _ in hit),
-                "isp": sum(1 for _, _, c in hit if c == "isp")}
-
-    return {"now": now, "since": first, "h24": window(now - 86400), "d7": window(start_7d), "d30": window(start_30d),
-            "recent": recent[:8], "unstable_24h": unstable_24h,
+    out = clip([(a, b, c or "unknown") for a, b, c in rows], t0, now)
+    return {"now": now, "since": first, "from": t0,
+            "h24": {"count": len(rows), "down_s": sum(b - a for a, b, _ in out),
+                    "isp": sum(1 for _, _, c in rows if c == "isp"), "unstable": len(uns)},
+            "mon": clip(subtract(sessions, gaps), t0, now), "out": out, "uns": clip(uns, t0, now),
+            "recent": recent[:8],
             "last": {"start": last[0], "end": last[1] if last[1] is not None else now, "cause": last[2] or "unknown",
                      "ongoing": last[1] is None} if last else None}
 

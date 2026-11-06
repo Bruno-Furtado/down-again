@@ -146,23 +146,24 @@ for (const lang of LANGS) {
     await js(`(() => {
       for (let i = 1; i < 10000; i++) clearInterval(i);
       window.__d = {
-        keep(dt) { S.offset += dt || 0; S.st.last = nowS(); renderHero(); renderGlance(); },
+        keep(dt) { S.offset += dt || 0; S.st.last = nowS(); renderHero(); },
         pending() { S.st = Object.assign({}, S.st, { pending: 1, last: nowS(), probe: Object.assign({}, S.st.probe, { state: "isp", net_ms: null, http_ok: false }) }); renderPath(); renderHero(); },
         down() {
           const n = nowS();
           S.st = Object.assign({}, S.st, { state: "down", pending: 0, last: n, outage: { start: n - 1, cause: "isp" },
             probe: { state: "isp", gw: "192.168.0.1", gw_ms: 3.1, net_ms: null, http_ok: false } });
           renderPath(); renderHero();
-          ["h24", "d7", "d30"].forEach((k) => { S.gl[k].count += 1; });
-          S.gl.now = n; S.gl.last = { start: n - 1, end: n, cause: "isp", ongoing: true }; renderGlance();
+          S.gl.h24.count += 1; S.gl.out.push([S.gl.now - 60, S.gl.now, "isp"]); renderGlance();
         },
-        tick(sec) { S.st.outage.start -= sec; S.st.last = nowS(); renderHero(); },
+        tick(sec) {
+          S.st.outage.start -= sec; S.st.last = nowS(); renderHero();
+          const o = S.gl.out[S.gl.out.length - 1]; o[0] -= sec * 12; S.gl.h24.down_s = (S.gl.h24.down_s || 0) + sec; renderGlance();
+        },
         up() {
           const n = nowS();
-          S.gl.now = n; S.gl.last = { start: S.st.outage.start, end: n, cause: "isp", ongoing: false };
           S.st = Object.assign({}, S.st, { state: "up", pending: 0, since: n, since_start: false, outage: null, last: n,
             probe: { state: "ok", gw: "192.168.0.1", gw_ms: 3.4, net_ms: 18, http_ok: true } });
-          renderPath(); renderHero(); renderGlance();
+          renderPath(); renderHero();
         },
       };
     })()`);
