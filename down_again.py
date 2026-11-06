@@ -93,6 +93,7 @@ TEXTS = {
         "notify.back.body": "Went down at {start} and came back at {end} ({dur}).\nLikely cause: {cause}.\nOutages today: {today}.",
         "notify.gap.title": "The monitor stopped running",
         "notify.gap.body": "From {a} to {b} ({dur}). Computer off, asleep or a power cut — this period shows as 'not monitored'.",
+        "notify.many.title": "{n} alerts from the monitor",
         "notify.test.title": "down-again test", "notify.test.body": "If you can read this, alerts are working.",
         "log.notify_failed": "alert not sent, retrying in 30s: {err}", "log.db_error": "database error: {err}",
         "log.outage": "OUTAGE since {since} — likely cause: {cause}", "log.back": "back after {dur} ({cause})",
@@ -138,6 +139,7 @@ TEXTS = {
         "notify.back.body": "Caiu às {start} e voltou às {end} ({dur}).\nCausa provável: {cause}.\nQuedas hoje: {today}.",
         "notify.gap.title": "Monitor ficou sem rodar",
         "notify.gap.body": "De {a} até {b} ({dur}). Computador desligado, dormindo ou falta de luz — esse período aparece como 'não monitorado'.",
+        "notify.many.title": "{n} avisos do monitor",
         "notify.test.title": "Teste do down-again", "notify.test.body": "Se você está lendo isto, os avisos estão funcionando.",
         "log.notify_failed": "aviso não enviado, tento de novo em 30s: {err}", "log.db_error": "erro no banco: {err}",
         "log.outage": "QUEDA desde {since} — causa provável: {cause}", "log.back": "voltou após {dur} ({cause})",
@@ -183,6 +185,7 @@ TEXTS = {
         "notify.back.body": "{start} 断开，{end} 恢复（{dur}）。\n可能原因：{cause}。\n今日断线：{today} 次。",
         "notify.gap.title": "监控曾停止运行",
         "notify.gap.body": "从 {a} 到 {b}（{dur}）。电脑关机、睡眠或停电 — 该时段显示为“未监控”。",
+        "notify.many.title": "监控的 {n} 条通知",
         "notify.test.title": "down-again 测试", "notify.test.body": "如果你看到这条消息，说明通知功能正常。",
         "log.notify_failed": "通知未发送，30 秒后重试：{err}", "log.db_error": "数据库错误：{err}",
         "log.outage": "断线，开始于 {since} — 可能原因：{cause}", "log.back": "已恢复，断开 {dur}（{cause}）",
@@ -685,14 +688,19 @@ class Notifier:
     def enabled(self):
         return bool(self.cfg.get("ntfy_topic"))
 
-    def queue(self, title, body, tag):
+    def queue(self, title, body, tag, db=None):
+        """Guarda o aviso na fila. Quem já tem uma transação aberta (o monitor) passa a própria
+        conexão: abrir outra e esperar o lock dela travava 15 s e perdia o aviso."""
         if not self.enabled:
             return
-        db = connect()
+        own = db is None
+        if own:
+            db = connect()
         db.execute("INSERT INTO notifications(ts, title, body, tag) VALUES(?,?,?,?)",
                    (time.time(), title, body, tag))
         db.commit()
-        db.close()
+        if own:
+            db.close()
         self.wake.set()
 
     def send(self, title, body, tags):
@@ -733,7 +741,7 @@ class Notifier:
             if len(rows) == 1:
                 title, body, tags = rows[0][1], rows[0][2], [rows[0][3]]
             else:
-                title = "%d avisos do monitor" % len(rows)
+                title = tr("notify.many.title", n=len(rows))
                 body = "\n\n".join("%s\n%s" % (r[1], r[2]) for r in rows)
                 tags = [rows[-1][3]]
             ok, err = self.send(title, body, tags)
@@ -1065,7 +1073,7 @@ class Monitor:
                 tr("notify.back.title"),
                 tr("notify.back.body", start=fmt_ts(o["start"], "%H:%M:%S"), end=fmt_ts(ts, "%H:%M:%S"),
                    dur=fmt_dur(dur), cause=cause_label(cause), today=today),
-                "green_circle")
+                "green_circle", db=self.db)
 
     def _gap(self, a, b):
         self.db.execute("INSERT INTO gaps VALUES(?,?)", (a, b))
@@ -1082,7 +1090,7 @@ class Monitor:
         self.notifier.queue(
             tr("notify.gap.title"),
             tr("notify.gap.body", a=fmt_ts(a, "%d/%m %H:%M"), b=fmt_ts(b, "%d/%m %H:%M"), dur=fmt_dur(b - a)),
-            "warning")
+            "warning", db=self.db)
 
     def stop(self):
         if self.outage and self.last_ts:
