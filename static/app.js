@@ -32,7 +32,7 @@ function showTab(tab) {
   });
   // o mesmo seletor de período serve ao histórico e ao relatório
   (tab === "report" ? $("#rep-period-slot") : $("#hist-period-slot")).appendChild($("#period"));
-  if (tab === "now") { renderSeries(); loadSeries(); }
+  if (tab === "now") { renderSeries(); loadSeries(); renderSpeedMini(); loadSpeedRecent(); }
   if (tab === "history" || tab === "report") { renderSummary(); renderSpeedChart(); loadSummary(); }
   if (tab === "settings") loadConfig();
   window.scrollTo(0, 0);
@@ -187,7 +187,7 @@ async function pollStatus() {
     const newSpeed = S.st && lastSpeed(st) !== lastSpeed(S.st);
     S.st = st; S.failCount = 0;
     renderPath(); renderNet(); renderSpeedNow();
-    if (newSpeed && S.tab === "history") loadSpeed();
+    if (newSpeed) { loadSpeedRecent(); if (S.tab === "history") loadSpeed(); }
     if (changed) { loadGlance(); if (S.tab === "now") loadSeries(); else if (S.tab !== "settings") loadSummary(); }
   } catch (e) {
     if (++S.failCount >= 2) { S.st = null; renderPath(); }
@@ -270,10 +270,10 @@ function niceMax(v) {
   return 10 * p;
 }
 
-function axes(W, H, L, R, T, B, yMax, Y) {
+function axes(W, H, L, R, T, B, yMax, Y, n = 4) {
   let g = "";
-  for (let i = 0; i <= 4; i++) {
-    const v = (yMax / 4) * i, y = Y(v);
+  for (let i = 0; i <= n; i++) {
+    const v = (yMax / n) * i, y = Y(v);
     g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 3.5}" text-anchor="end">${Math.round(v)}</text>`;
   }
   return g;
@@ -506,31 +506,44 @@ function renderSpeedDesc() {
 }
 
 function renderSpeedChart() {
-  const box = $("#speed-chart"), d = S.speed;
-  if (!d || S.tab !== "history") return;
+  if (S.tab === "history") drawSpeed($("#speed-chart"), S.speed, false, renderSpeedChart);
+}
+
+// Velocidade dos últimos 7 dias, no cartão da aba Agora.
+async function loadSpeedRecent() {
+  const r = NM.rangeFor("7d");
+  try { S.speedRecent = await NM.get(`/api/speedtests?from=${r.from}&to=${r.to}`); renderSpeedMini(); } catch (e) { /* tenta depois */ }
+}
+function renderSpeedMini() {
+  if (S.tab === "now") drawSpeed($("#speed-mini"), S.speedRecent, true, renderSpeedMini);
+}
+
+function drawSpeed(box, d, compact, retry) {
+  if (!d) return;
   const tests = d.tests.filter((x) => !x.error && x.down);
-  if (!tests.length) { box.innerHTML = `<div class="empty chart-empty">${t("speed.empty")}</div>`; return; }
-  const W = box.clientWidth, H = box.clientHeight, L = 46, R = 8, T = 10, B = 22;
-  if (W < 120) return void setTimeout(renderSpeedChart, 300);
+  if (!tests.length) { setHTML(box, `<div class="empty chart-empty">${t("speed.empty")}</div>`); return; }
+  const W = box.clientWidth, H = box.clientHeight, L = compact ? 34 : 46, R = compact ? 4 : 8, T = compact ? 6 : 10, B = compact ? 18 : 22;
+  if (W < 120) return void setTimeout(retry, 300);
   const plan = planNow(), t0 = tests[0].ts, t1 = tests[tests.length - 1].ts, span = Math.max(1, t1 - t0);
   const X = (x) => (tests.length === 1 ? (L + W - R) / 2 : L + ((x - t0) / span) * (W - L - R));
   const yMax = niceMax(Math.max(10, plan.down, ...tests.map((x) => Math.max(x.down || 0, x.up || 0))) * 1.08);
   const Y = (v) => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
-  let g = axes(W, H, L, R, T, B, yMax, Y);
-  const nT = Math.min(W < 500 ? 3 : 5, tests.length - 1);
+  let g = axes(W, H, L, R, T, B, yMax, Y, compact ? 2 : 4);
+  const nT = Math.min(W < 420 ? 2 : compact || W < 500 ? 3 : 5, tests.length - 1);
   for (let i = 0; i <= nT && tests.length > 1; i++) {
     const x = t0 + (span / nT) * i;
-    g += `<text class="ax" x="${X(x)}" y="${H - 5}" text-anchor="${i === 0 ? "start" : i === nT ? "end" : "middle"}">${esc(span > 86400 ? NM.dayLabel(x) : NM.time(x, false))}</text>`;
+    g += `<text class="ax" x="${X(x)}" y="${H - 4}" text-anchor="${i === 0 ? "start" : i === nT ? "end" : "middle"}">${esc(span > 86400 ? NM.dayLabel(x) : NM.time(x, false))}</text>`;
   }
   if (plan.down) {
     g += `<line class="sp-plan-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down)}" y2="${Y(plan.down)}"/>`;
-    g += `<line class="sp-40-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down * 0.4)}" y2="${Y(plan.down * 0.4)}"/>`;
+    if (!compact) g += `<line class="sp-40-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down * 0.4)}" y2="${Y(plan.down * 0.4)}"/>`;
   }
   const line = (key) => tests.filter((x) => x[key] != null).map((x, i) => `${i ? "L" : "M"}${X(x.ts).toFixed(1)} ${Y(x[key]).toFixed(1)}`).join("");
-  const dots = (key, cls) => tests.filter((x) => x[key] != null).map((x) => `<circle class="${cls}" cx="${X(x.ts).toFixed(1)}" cy="${Y(x[key]).toFixed(1)}" r="2.6"/>`).join("");
+  const dots = (key, cls) => compact ? "" : tests.filter((x) => x[key] != null).map((x) => `<circle class="${cls}" cx="${X(x.ts).toFixed(1)}" cy="${Y(x[key]).toFixed(1)}" r="2.6"/>`).join("");
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<path class="l-up" d="${line("up")}"/><path class="l-avg" d="${line("down")}"/>${dots("up", "d-up")}${dots("down", "d-down")}
-    <line class="xh" id="sxh" y1="${T}" y2="${H - B}"/><rect id="sov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
-  const ov = box.querySelector("#sov"), xh = box.querySelector("#sxh");
+    <line class="xh" y1="${T}" y2="${H - B}"/><rect class="ov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
+  box._html = null;
+  const ov = box.querySelector(".ov"), xh = box.querySelector(".xh");
   const move = (cx, cy) => {
     const at = t0 + ((cx - box.getBoundingClientRect().left - L) / (W - L - R)) * span;
     let best = tests[0];
@@ -572,7 +585,7 @@ async function saveSetting(changes) {
     if (!r.ok) throw new Error(r.code);
     Object.assign(S.cfg, r.settings);
     toast(t("speed.saved"));
-    renderSettings(); renderSpeedNow();
+    renderSettings(); renderSpeedNow(); renderSpeedMini();
     return true;
   } catch (err) { toast(t("ntfy.failed", { e: err.message }), false); return false; }
 }
@@ -648,6 +661,7 @@ async function loadConfig() {
     renderPhone();
     renderSpeedNow();
     if (S.tab === "history") { renderSpeedChart(); renderSummary(); }
+    renderSpeedMini();
     const addr = S.cfg.host ? `http://${S.cfg.host}:${S.cfg.port}` : "";
     $("#foot").innerHTML = esc(t("foot", { n: S.cfg.interval })) + (addr ? ` · <a href="${esc(addr)}">${esc(addr)}</a>` : "");
   } catch (e) { setTimeout(loadConfig, 5000); }
@@ -726,7 +740,7 @@ $("#refresh").onclick = async () => {
 };
 
 let rT;
-window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { renderSeries(); renderSpeedChart(); }, 120); });
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { renderSeries(); renderSpeedChart(); renderSpeedMini(); }, 120); });
 
 /* ---------- início e atualizações ---------- */
 // Aba escondida (outra aba do navegador, tela apagada): não busca nem redesenha nada.

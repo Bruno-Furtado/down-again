@@ -72,8 +72,19 @@
           <h3 data-i18n="speed.title"></h3>
           <button class="btn sm" id="speed-run"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg><span data-i18n="speed.run"></span></button>
         </div>
-        <div id="speed-vals"></div>
-        <p class="res" id="speed-res"></p>
+        <div class="sp-cols">
+        <div><div id="speed-vals"></div>
+        <p class="res" id="speed-res"></p></div>
+        <div class="sp-recent">
+          <div class="legend">
+            <span class="sp-recent-t" data-i18n="speed.recent"></span>
+            <span><i style="--c:var(--accent)"></i><span data-i18n="speed.download"></span></span>
+            <span><i style="--c:var(--ok)"></i><span data-i18n="speed.upload"></span></span>
+            <span><i class="dash" style="--c:var(--accent-2)"></i><span data-i18n="speed.legendPlan"></span></span>
+          </div>
+          <div class="chart mini" id="speed-mini"></div>
+        </div>
+        </div>
       </div>
 
       <div class="card path-card">

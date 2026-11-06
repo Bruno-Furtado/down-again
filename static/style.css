@@ -112,7 +112,8 @@ section { margin-top: 26px; }
 
 /* Agora: status */
 .now-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
-.now-mid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; margin-top: 16px; }
+.now-mid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.sp-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 28px; align-items: start; }
 .status { display: flex; gap: 22px; align-items: center; padding: 24px 26px; }
 .ring { --c: var(--ok); width: 84px; height: 84px; flex: none; border-radius: 50%; position: relative; display: grid; place-items: center;
   background: color-mix(in srgb, var(--c) 14%, transparent); }
@@ -162,6 +163,12 @@ button.gl-tile:hover { border-color: color-mix(in srgb, var(--accent) 45%, trans
 .sp-bar i { display: block; height: 100%; border-radius: 3px; background: var(--c); }
 .sp-meta { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
 .speed-now .res { margin: 6px 0 0; }
+.speed-now .res:empty { display: none; }
+.sp-recent { padding-left: 28px; border-left: 1px solid var(--line); }
+.sp-recent .legend { font-size: 12px; gap: 10px; }
+.sp-recent-t { font-weight: 650; color: var(--text); margin-right: auto; }
+.chart.mini { height: 150px; margin-top: 8px; }
+.path { max-width: 760px; margin-left: auto; margin-right: auto; }
 
 /* Agora: caminho computador → roteador → internet → sites */
 .path-card { padding: 20px 22px 18px; }
@@ -353,7 +360,10 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
   .settings, .rep { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
-  .now-top, .now-mid, .two { grid-template-columns: minmax(0, 1fr); }
+  .now-top, .now-mid, .two, .sp-cols { grid-template-columns: minmax(0, 1fr); }
+  .sp-cols { gap: 0; }
+  .sp-recent { padding: 12px 0 0; margin-top: 14px; border-left: 0; border-top: 1px solid var(--line); }
+  .chart.mini { height: 120px; }
 }
 /* celular: abas viram a barra de baixo, como num app */
 @media (max-width: 760px) {
