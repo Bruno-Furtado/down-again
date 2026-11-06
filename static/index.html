@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#080c15">
+<meta name="theme-color" content="#0b1020">
 <title>down-again</title>
 <link rel="icon" id="favicon" href="/icon.svg">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -19,23 +19,21 @@
   <header class="top">
     <div class="brand">
       <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg></span>
-      down-again
+      <span>down-again</span>
     </div>
+    <nav class="tabs" id="tabs" role="tablist">
+      <a href="#now" data-tab="now" role="tab"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg><span data-i18n="tab.now"></span></a>
+      <a href="#history" data-tab="history" role="tab"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span data-i18n="tab.history"></span></a>
+      <a href="#report" data-tab="report" role="tab"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg><span data-i18n="tab.report"></span></a>
+      <a href="#settings" data-tab="settings" role="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="tab.settings"></span></a>
+    </nav>
     <div class="top-r">
       <span class="chip" id="netchip">
-        <span id="neticon"></span><span><b id="netname">…</b> <span class="net-sub" id="netsub"></span></span>
+        <span id="neticon"></span><span class="chip-txt"><b id="netname">…</b> <span class="net-sub" id="netsub"></span></span>
       </span>
       <button class="icon-btn" id="refresh" data-i18n-title="refresh">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>
       </button>
-      <div class="menu-wrap">
-        <button class="icon-btn" id="lang" aria-haspopup="menu" aria-expanded="false"></button>
-        <div class="menu" id="lang-menu" role="menu"></div>
-      </div>
-      <div class="menu-wrap">
-        <button class="icon-btn" id="theme" aria-haspopup="menu" aria-expanded="false"></button>
-        <div class="menu" id="theme-menu" role="menu"></div>
-      </div>
     </div>
   </header>
 
@@ -46,178 +44,232 @@
     <button class="icon-btn install-x" id="install-x" data-i18n-title="install.close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
 
-  <div class="hero">
-    <div class="card status is-idle" id="status">
-      <div class="ring"><i></i></div>
-      <div>
-        <div class="st-title" id="st-title" data-i18n="st.connecting"></div>
-        <div class="st-lbl" id="st-lbl"></div>
-        <div class="big" id="st-big"></div>
-        <div class="st-sub" id="st-sub" data-i18n="st.fetching"></div>
+  <!-- ===================== AGORA ===================== -->
+  <main class="view" id="v-now">
+    <div class="now-top">
+      <div class="card status is-idle" id="status">
+        <div class="ring"><i></i></div>
+        <div class="st-body">
+          <div class="st-title" id="st-title" data-i18n="st.connecting"></div>
+          <div class="st-lbl" id="st-lbl"></div>
+          <div class="big" id="st-big"></div>
+          <div class="st-sub" id="st-sub" data-i18n="st.fetching"></div>
+        </div>
+      </div>
+
+      <div class="card glance" id="glance">
+        <div class="gl-head">
+          <span class="gl-ic" id="gl-ic"></span>
+          <div><div class="gl-title" id="gl-title" data-i18n="loading"></div><div class="gl-sub" id="gl-sub">&nbsp;</div></div>
+        </div>
+        <div class="gl-tiles" id="gl-tiles"></div>
       </div>
     </div>
 
-    <div class="card glance" id="glance">
-      <div class="gl-head">
-        <span class="gl-ic" id="gl-ic"></span>
-        <div><div class="gl-title" id="gl-title" data-i18n="loading"></div><div class="gl-sub" id="gl-sub">&nbsp;</div></div>
-      </div>
-      <div class="gl-tiles" id="gl-tiles"></div>
-    </div>
-
-    <div class="card path-card">
-      <h3 data-i18n="path.title"></h3>
-      <div class="path">
-        <div class="node idle" id="n-pc"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span><b data-i18n="node.computer"></b><small>—</small></div>
-        <div class="link idle" id="l-1"></div>
-        <div class="node idle" id="n-gw"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a5.5 5.5 0 0 1 8 0M5.5 6.5a9 9 0 0 1 13 0"/></svg></span><b data-i18n="node.router"></b><small>—</small></div>
-        <div class="link idle" id="l-2"></div>
-        <div class="node idle" id="n-net"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b data-i18n="node.internet"></b><small>—</small></div>
-        <div class="link idle" id="l-3"></div>
-        <div class="node idle" id="n-web"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><b data-i18n="node.sites"></b><small>—</small></div>
-      </div>
-      <p class="path-note" id="path-note"></p>
-    </div>
-  </div>
-
-  <section>
-    <div class="sec-h">
-      <div><h2 data-i18n="lat.title"></h2><p data-i18n="lat.desc"></p></div>
-      <div class="seg" id="series-seg">
-        <button data-v="1">1h</button><button data-v="6">6h</button><button data-v="24">24h</button><button data-v="168">7d</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="legend">
-        <span><i style="--c:var(--accent)"></i><span data-i18n="lat.avg"></span></span>
-        <span><i style="--c:var(--ok)"></i><span data-i18n="lat.router"></span></span>
-        <span><i class="sq" style="--c:var(--down);opacity:.5"></i><span data-i18n="lat.fails"></span></span>
-      </div>
-      <div class="chart" id="chart"></div>
-    </div>
-  </section>
-
-  <section id="speed-sec">
-    <div class="sec-h">
-      <div><h2 data-i18n="speed.title"></h2><p id="speed-desc">&nbsp;</p></div>
-      <div class="btns" style="align-items:center">
-        <span class="res" id="speed-res"></span>
-        <button class="btn" id="speed-run"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg><span data-i18n="speed.run"></span></button>
-      </div>
-    </div>
-    <div class="speed">
-      <div class="card">
+    <div class="now-mid">
+      <div class="card speed-now">
+        <div class="card-h">
+          <h3 data-i18n="speed.title"></h3>
+          <button class="btn sm" id="speed-run"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg><span data-i18n="speed.run"></span></button>
+        </div>
         <div id="speed-vals"></div>
-        <details class="sp-plan" id="sp-plan">
-          <summary id="sp-plan-sum" data-i18n="speed.plan"></summary>
-          <form id="sp-form">
-            <label>↓ <input id="plan-down" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</label>
-            <label>↑ <input id="plan-up" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</label>
-            <button class="btn" type="submit" data-i18n="speed.save"></button>
-            <span class="res" id="plan-res"></span>
-            <small class="sp-hint" data-i18n="speed.planHint"></small>
-          </form>
-        </details>
+        <p class="res" id="speed-res"></p>
+      </div>
+
+      <div class="card path-card">
+        <h3 data-i18n="path.title"></h3>
+        <div class="path">
+          <div class="node idle" id="n-pc"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span><b data-i18n="node.computer"></b><small>—</small></div>
+          <div class="link idle" id="l-1"></div>
+          <div class="node idle" id="n-gw"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a5.5 5.5 0 0 1 8 0M5.5 6.5a9 9 0 0 1 13 0"/></svg></span><b data-i18n="node.router"></b><small>—</small></div>
+          <div class="link idle" id="l-2"></div>
+          <div class="node idle" id="n-net"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b data-i18n="node.internet"></b><small>—</small></div>
+          <div class="link idle" id="l-3"></div>
+          <div class="node idle" id="n-web"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><b data-i18n="node.sites"></b><small>—</small></div>
+        </div>
+        <p class="path-note" id="path-note"></p>
+        <p class="path-ip" id="path-ip"></p>
+      </div>
+    </div>
+
+    <section>
+      <div class="sec-h">
+        <div><h2 data-i18n="lat.title"></h2><p data-i18n="lat.desc"></p></div>
+        <div class="seg" id="series-seg">
+          <button data-v="1">1h</button><button data-v="6">6h</button><button data-v="24">24h</button><button data-v="168">7d</button>
+        </div>
       </div>
       <div class="card">
+        <div class="legend">
+          <span><i style="--c:var(--accent)"></i><span data-i18n="lat.avg"></span></span>
+          <span><i style="--c:var(--ok)"></i><span data-i18n="lat.router"></span></span>
+          <span><i class="sq" style="--c:var(--down);opacity:.5"></i><span data-i18n="lat.fails"></span></span>
+        </div>
+        <div class="chart" id="chart"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-h">
+        <div><h2 data-i18n="recent.title"></h2><p data-i18n="recent.desc"></p></div>
+        <a class="btn sm" href="#history"><span data-i18n="recent.all"></span></a>
+      </div>
+      <div class="card"><div class="feed" id="recent"></div></div>
+    </section>
+  </main>
+
+  <!-- ===================== HISTÓRICO ===================== -->
+  <main class="view" id="v-history" hidden>
+    <div class="sec-h first">
+      <div><h2 data-i18n="sum.title"></h2><p id="period-desc">&nbsp;</p></div>
+      <div id="hist-period-slot"><div class="period" id="period">
+        <div class="seg" id="period-seg">
+          <button data-v="today" data-i18n="p.today"></button><button data-v="7d" data-i18n="p.7d"></button><button data-v="30d" data-i18n="p.30d"></button><button data-v="custom" data-i18n="p.custom"></button>
+        </div>
+        <div class="custom" id="custom">
+          <input type="date" id="d-from"> <span class="muted" data-i18n="p.to"></span> <input type="date" id="d-to">
+          <button class="btn sm" id="d-apply" data-i18n="p.apply"></button>
+        </div>
+      </div></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+
+    <section>
+      <div class="sec-h">
+        <div><h2 data-i18n="tl.title"></h2><p data-i18n="tl.desc"></p></div>
+        <div class="legend">
+          <span><i class="sq" style="--c:var(--mon)"></i><span data-i18n="leg.online"></span></span>
+          <span><i class="sq" style="--c:var(--isp)"></i><span data-i18n="leg.isp"></span></span>
+          <span><i class="sq" style="--c:var(--local)"></i><span data-i18n="leg.local"></span></span>
+          <span><i class="sq" style="--c:var(--dns)"></i><span data-i18n="leg.dns"></span></span>
+          <span><i class="ln" style="--c:var(--unst)"></i><span data-i18n="leg.unstable"></span></span>
+          <span><i class="sq" style="--c:var(--unmon)"></i><span data-i18n="leg.unmon"></span></span>
+        </div>
+      </div>
+      <div class="card" id="timeline"></div>
+    </section>
+
+    <section>
+      <div class="sec-h">
+        <div><h2 data-i18n="list.title"></h2><p id="list-desc">&nbsp;</p></div>
+        <div class="list-ctl">
+          <div class="chips" id="chips"></div>
+          <select id="sort"><option value="recent" data-i18n="sort.recent"></option><option value="long" data-i18n="sort.long"></option></select>
+        </div>
+      </div>
+      <div class="card"><div class="feed" id="olist"></div></div>
+    </section>
+
+    <section>
+      <div class="sec-h">
+        <div><h2 data-i18n="speed.history"></h2><p id="speed-desc">&nbsp;</p></div>
         <div class="legend">
           <span><i style="--c:var(--accent)"></i><span data-i18n="speed.download"></span></span>
           <span><i style="--c:var(--ok)"></i><span data-i18n="speed.upload"></span></span>
           <span><i class="dash" style="--c:var(--accent-2)"></i><span data-i18n="speed.legendPlan"></span></span>
           <span><i class="dash" style="--c:var(--down)"></i><span data-i18n="speed.legend40"></span></span>
         </div>
-        <div class="chart" id="speed-chart"></div>
       </div>
-    </div>
-  </section>
+      <div class="card"><div class="chart" id="speed-chart"></div></div>
+    </section>
 
-  <section>
-    <div class="sec-h">
-      <div><h2 data-i18n="sum.title"></h2><p id="period-desc">&nbsp;</p></div>
+    <section class="two">
       <div>
-        <div class="seg" id="period-seg">
-          <button data-v="today" data-i18n="p.today"></button><button data-v="7d" data-i18n="p.7d"></button><button data-v="30d" data-i18n="p.30d"></button><button data-v="custom" data-i18n="p.custom"></button>
+        <div class="sec-h">
+          <div><h2 data-i18n="hours.title"></h2></div>
+          <div class="seg" id="hour-seg"><button data-v="count" data-i18n="hours.count"></button><button data-v="time" data-i18n="hours.time"></button></div>
         </div>
-        <div class="custom" id="custom">
-          <input type="date" id="d-from"> <span class="muted" data-i18n="p.to"></span> <input type="date" id="d-to">
-          <button class="btn" id="d-apply" data-i18n="p.apply"></button>
+        <div class="card" id="hours"></div>
+      </div>
+      <div>
+        <div class="sec-h"><div><h2 data-i18n="causes.title"></h2></div></div>
+        <div class="card" id="causes"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== RELATÓRIO ===================== -->
+  <main class="view" id="v-report" hidden>
+    <div class="sec-h first">
+      <div><h2 data-i18n="report.title"></h2><p data-i18n="report.desc"></p></div>
+      <div id="rep-period-slot"></div>
+    </div>
+    <div class="rep">
+      <div class="card">
+        <h3 id="rep-period">&nbsp;</h3>
+        <dl class="facts" id="rep-facts"></dl>
+        <div class="btns">
+          <a class="btn primary" id="lnk-report" href="/relatorio"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg><span data-i18n="report.open"></span></a>
+          <a class="btn" id="lnk-csv" href="/api/outages.csv"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span data-i18n="report.csv"></span></a>
         </div>
       </div>
-    </div>
-    <div class="kpis">
-      <div class="card gauge">
-        <svg viewBox="0 0 170 170"><circle class="g-bg" cx="85" cy="85" r="72"/><circle class="g-fg" id="g-fg" cx="85" cy="85" r="72" stroke-dasharray="0 999"/></svg>
-        <div class="gauge-in"><b id="g-val">—</b><span data-i18n="gauge.label"></span></div>
-        <p id="g-sub">&nbsp;</p>
+      <div class="card howto">
+        <h3 data-i18n="report.howTitle"></h3>
+        <ol>
+          <li data-i18n-html="report.how1"></li>
+          <li data-i18n-html="report.how2"></li>
+          <li data-i18n-html="report.how3"></li>
+        </ol>
       </div>
-      <div class="kgrid" id="kgrid"></div>
     </div>
-  </section>
+  </main>
 
-  <section>
-    <div class="sec-h">
-      <div><h2 data-i18n="tl.title"></h2><p data-i18n="tl.desc"></p></div>
-      <div class="legend">
-        <span><i class="sq" style="--c:var(--mon)"></i><span data-i18n="leg.online"></span></span>
-        <span><i class="sq" style="--c:var(--isp)"></i><span data-i18n="leg.isp"></span></span>
-        <span><i class="sq" style="--c:var(--local)"></i><span data-i18n="leg.local"></span></span>
-        <span><i class="sq" style="--c:var(--dns)"></i><span data-i18n="leg.dns"></span></span>
-        <span><i class="sq" style="--c:var(--unmon)"></i><span data-i18n="leg.unmon"></span></span>
+  <!-- ===================== AJUSTES ===================== -->
+  <main class="view" id="v-settings" hidden>
+    <div class="settings">
+      <div class="card">
+        <h2 data-i18n="ntfy.title"></h2>
+        <p class="desc" data-i18n="ntfy.desc"></p>
+        <ol class="steps">
+          <li data-i18n-html="ntfy.step1"></li>
+          <li id="ntfy-step2"></li>
+          <li data-i18n="ntfy.step3"></li>
+        </ol>
+        <div class="topic"><span id="topic">…</span><button class="btn sm" id="copy" data-i18n="ntfy.copy"></button></div>
+        <div class="btns" style="align-items:center"><button class="btn" id="test" data-i18n="ntfy.test"></button><span class="res" id="test-res"></span></div>
+        <p class="ntfy-state" id="ntfy-state"></p>
+        <div class="form">
+          <label><span data-i18n="set.daily"></span><select id="set-daily" data-k="daily_summary_hour"></select></label>
+          <label><span data-i18n="set.minOutage"></span><select id="set-min" data-k="notify_min_seconds"></select></label>
+          <label><span data-i18n="set.notifyLang"></span><select id="set-lang" data-k="language"></select></label>
+        </div>
+        <p class="hint" data-i18n="set.dailyHint"></p>
       </div>
-    </div>
-    <div class="card" id="timeline"></div>
-  </section>
 
-  <section class="grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)" id="row2">
-    <div>
-      <div class="sec-h">
-        <div><h2 data-i18n="hours.title"></h2></div>
-        <div class="seg" id="hour-seg"><button data-v="count" data-i18n="hours.count"></button><button data-v="time" data-i18n="hours.time"></button></div>
+      <div class="card">
+        <h2 data-i18n="speed.title"></h2>
+        <p class="desc" data-i18n="speed.planHint"></p>
+        <form class="form" id="sp-form">
+          <label><span data-i18n="set.planDown"></span><span class="unit"><input id="plan-down" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</span></label>
+          <label><span data-i18n="set.planUp"></span><span class="unit"><input id="plan-up" type="number" min="0" max="100000" step="1" inputmode="decimal"> Mbps</span></label>
+          <div class="btns" style="align-items:center"><button class="btn" type="submit" data-i18n="speed.save"></button><span class="res" id="plan-res"></span></div>
+        </form>
+        <div class="form">
+          <label><span data-i18n="set.speedEvery"></span><select id="set-speed" data-k="speedtest_minutes"></select></label>
+        </div>
+        <p class="hint" id="speed-usage"></p>
       </div>
-      <div class="card" id="hours"></div>
-    </div>
-    <div>
-      <div class="sec-h"><div><h2 data-i18n="causes.title"></h2></div></div>
-      <div class="card" id="causes"></div>
-    </div>
-  </section>
 
-  <section>
-    <div class="sec-h">
-      <div><h2 data-i18n="list.title"></h2><p id="list-desc">&nbsp;</p></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div class="chips" id="chips"></div>
-        <select id="sort"><option value="recent" data-i18n="sort.recent"></option><option value="long" data-i18n="sort.long"></option></select>
+      <div class="card">
+        <h2 data-i18n="set.look"></h2>
+        <div class="form">
+          <div class="field"><span data-i18n="lang"></span><div class="seg wrap-seg" id="lang-seg"></div></div>
+          <div class="field"><span data-i18n="theme"></span><div class="seg wrap-seg" id="theme-seg"></div></div>
+        </div>
+        <p class="hint" id="theme-hint"></p>
       </div>
-    </div>
-    <div class="card"><div class="olist" id="olist"></div></div>
-  </section>
 
-  <section class="actions">
-    <div class="card">
-      <h2 style="margin:0;font-size:17px" data-i18n="report.title"></h2>
-      <p data-i18n="report.desc"></p>
-      <div class="btns">
-        <a class="btn primary" id="lnk-report" href="/relatorio"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg><span data-i18n="report.open"></span></a>
-        <a class="btn" id="lnk-csv" href="/api/outages.csv"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span data-i18n="report.csv"></span></a>
+      <div class="card phone">
+        <h2 data-i18n="phone.title"></h2>
+        <div id="phone-body"></div>
+      </div>
+
+      <div class="card about">
+        <h2 data-i18n="set.about"></h2>
+        <dl class="facts" id="about"></dl>
       </div>
     </div>
-    <div class="card">
-      <h2 style="margin:0;font-size:17px" data-i18n="ntfy.title"></h2>
-      <p data-i18n="ntfy.desc"></p>
-      <ol class="steps">
-        <li data-i18n-html="ntfy.step1"></li>
-        <li id="ntfy-step2"></li>
-        <li data-i18n="ntfy.step3"></li>
-      </ol>
-      <div class="topic"><span id="topic">…</span><button class="btn" id="copy" style="padding:5px 10px;font-size:12.5px" data-i18n="ntfy.copy"></button></div>
-      <div class="btns" style="align-items:center"><button class="btn" id="test" data-i18n="ntfy.test"></button><span class="res" id="test-res"></span></div>
-    </div>
-    <div class="card phone">
-      <h2 style="margin:0;font-size:17px" data-i18n="phone.title"></h2>
-      <div id="phone-body"></div>
-    </div>
-  </section>
+  </main>
 
   <footer id="foot">down-again</footer>
 </div>

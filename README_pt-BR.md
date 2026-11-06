@@ -21,9 +21,11 @@ O **down-again** vigia a internet de casa a partir de qualquer computador ligado
 - 🟢 **Status ao vivo**: online ou fora do ar, com cronômetro e causa provável.
 - 🔍 **De quem é a culpa**: provedor, seu Wi-Fi ou DNS.
 - 📊 **Histórico**: linha do tempo por dia e quedas em 24h, 7 e 30 dias.
+- 〰️ **Instabilidade**: pega perda de pacotes e picos de latência que não chegam a derrubar a conexão.
+- 🔁 **Troca de IP público**: detecta reconexões silenciosas do provedor e o roteador reiniciando.
 - 🚀 **Teste de velocidade**: 6 vezes por dia, comparado com o plano que você paga.
 - 🧾 **Relatório para o provedor**: imprimir ou salvar em PDF, mais CSV para planilhas.
-- 📱 **Avisos no celular**: uma mensagem assim que a internet volta.
+- 📱 **Avisos no celular**: uma mensagem assim que a internet volta, além de um resumo toda manhã.
 - 📲 **Funciona como app**: adicione à tela de início do celular ou leia o QR code do painel.
 - 🌐 **3 idiomas**: English, Português e 中文.
 - 🪶 **Zero dependências**: só Python. O painel funciona mesmo com a internet fora.
@@ -32,7 +34,7 @@ O **down-again** vigia a internet de casa a partir de qualquer computador ligado
 
 <table>
   <tr>
-    <td width="34%" valign="top"><img src="docs/pt/demo.gif" alt="Painel no celular: queda do provedor, volta e troca de tema"></td>
+    <td width="34%" valign="top"><img src="docs/pt/demo.gif" alt="Painel no celular: queda do provedor, volta e a aba Histórico"></td>
     <td valign="top">
       <img src="docs/pt/dashboard.png" alt="Painel no desktop"><br><br>
       <img src="docs/pt/report.png" alt="Resumo do relatório para o provedor">
@@ -92,6 +94,9 @@ Uma queda é registrada depois de 2 testes seguidos com falha.
 | Roteador nunca responde a ping | Indeterminada |
 
 O tempo em que o computador fica desligado ou dormindo é marcado como *não monitorado*. Ele nunca conta como queda.
+
+Períodos **instáveis** são quando a internet continua no ar, mas os testes falham de vez em quando ou ficam bem mais lentos que o normal (pelo menos 4 testes ruins em um minuto).
+O **IP público** é lido a cada 10 minutos e depois de cada queda. IP novo depois de uma queda local quer dizer que o roteador provavelmente reiniciou; IP novo sem queda nenhuma quer dizer que o provedor reconectou em poucos segundos.
 </details>
 
 <details>
@@ -108,12 +113,13 @@ O tempo em que o computador fica desligado ou dormindo é marcado como *não mon
 | `ntfy_topic` | aleatório | Tópico do ntfy. Use `""` para desligar os avisos |
 | `ntfy_server` | `https://ntfy.sh` | Seu próprio servidor ntfy, se tiver |
 | `notify_min_seconds` | `0` | Só avisa quedas com pelo menos esse tempo |
+| `daily_summary_hour` | `9` | Hora do resumo diário no celular. `-1` desliga |
 | `keep_samples_days` | `120` | Dias de testes brutos guardados (as quedas ficam para sempre) |
 | `speedtest_minutes` | `240` | Intervalo do teste de velocidade, em minutos (240 = 6 por dia). `0` desliga |
 | `speedtest_seconds` | `5` | Duração de cada sentido (download e upload) |
 | `plan_down_mbps` / `plan_up_mbps` | `0` | Seu plano, para comparar cada teste (também dá para informar no painel) |
 
-Reinicie o down-again depois de editar.
+Reinicie o down-again depois de editar. O plano, a frequência do teste de velocidade, o resumo diário e as opções de aviso também mudam pela aba **Ajustes** do painel, sem reiniciar.
 
 **O teste de velocidade consome dados.** Cada teste usa 6 conexões em paralelo com a Cloudflare (`speed.cloudflare.com`) por 5 s em cada sentido. Num plano de 500 Mbps, são uns 500 MB por teste, ou cerca de 90 GB por mês com 6 testes por dia. Ajuste o `speedtest_minutes` para testar com mais ou menos frequência. A detecção de quedas fica pausada durante o teste, e as medições são indicativas: a oficial da Anatel é feita pelo app Brasil Banda Larga.
 </details>
@@ -140,7 +146,7 @@ Para relatar uma vulnerabilidade, veja o [SECURITY.md](SECURITY.md).
 <summary><b>API</b></summary>
 
 `GET /api/status`, `/api/glance`, `/api/summary?from=&to=`, `/api/timeseries?hours=`, `/api/outages.csv?from=&to=&lang=` e `/api/config`.
-`POST /api/test-notify` exige o cabeçalho `X-Down-Again: 1`.
+`POST /api/test-notify`, `/api/speedtest` e `/api/settings` exigem o cabeçalho `X-Down-Again: 1`.
 </details>
 
 ---

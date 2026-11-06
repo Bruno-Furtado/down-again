@@ -157,6 +157,7 @@ const NM = (() => {
   function outageTip(o) {
     const c = cause(o.cause);
     return `<b>${esc(c.label)}</b> · ${dur(o.dur)}<br>${dt(o.start)} → ${time(o.end)}` +
+      (o.hint ? `<br>${esc(t("hint." + o.hint))}` : "") +
       (o.network ? `<br><span class="tip-m">${esc(o.network)}${o.rssi != null ? " · " + Math.round(o.rssi) + " dBm" : ""}</span>` : "") +
       (o.ongoing ? `<br><span class="tip-m">${t("tip.ongoing")}</span>` : "");
   }
@@ -172,6 +173,12 @@ const NM = (() => {
       segs += d.out.map(([a, b, c]) => {
         const o = s.outages.find((x) => x.start <= a + 1 && x.end >= b - 1) || { start: a, end: b, dur: b - a, cause: c };
         return `<i class="s-out" data-start="${o.start}" data-tip="${esc(outageTip(o))}" style="left:${P(a)}%;width:${P(b) - P(a)}%;background:${cause(c).color}"></i>`;
+      }).join("");
+      // instabilidade: faixa fina embaixo (a conexão não caiu, mas falhou ou ficou lenta)
+      segs += (d.uns || []).map(([a, b]) => {
+        const ev = (s.events || []).find((x) => x.kind === "unstable" && x.start <= a + 1 && x.end >= b - 1) || { start: a, end: b, data: {} };
+        const tip = `<b>${esc(t("ev.unstableTag"))}</b> · ${dur(ev.end - ev.start)}<br>${dt(ev.start)} → ${time(ev.end)}`;
+        return `<i class="s-uns" data-start="${ev.start}" data-tip="${esc(tip)}" style="left:${P(a)}%;width:${P(b) - P(a)}%"></i>`;
       }).join("");
       const av = d.avail == null ? "—" : pct(d.avail, d.avail >= 0.9999 ? 0 : 2);
       const tip = t("tl.tip", { day: esc(dayLabel(d.start)), n: d.count, down: dur(d.down_s), mon: dur(d.mon_s) });

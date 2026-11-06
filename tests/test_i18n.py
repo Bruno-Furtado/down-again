@@ -18,7 +18,7 @@ import down_again as da  # noqa: E402
 STATIC = os.path.join(ROOT, "static")
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 # chaves montadas em tempo de execução ("note." + estado, "cause." + código...)
-DYNAMIC_PREFIXES = ("note.", "cause.")
+DYNAMIC_PREFIXES = ("note.", "cause.", "hint.")
 
 
 def read(name):
@@ -66,8 +66,11 @@ class UiTranslationTests(unittest.TestCase, ParityMixin):
             self.assertIn("note." + state, keys)
             self.assertIn("cause." + state, keys)
             self.assertIn("cause." + state + ".desc", keys)
-        for i in range(1, 6):
+        for i in range(1, 9):
             self.assertIn("r.m%d" % i, keys)
+        for hint in ("router_restart", "reconnect"):        # pistas gravadas pelo servidor
+            self.assertIn("hint." + hint, keys)
+            self.assertIn("hint." + hint, da.TEXTS["en"])
 
 
 class ServerTranslationTests(unittest.TestCase, ParityMixin):

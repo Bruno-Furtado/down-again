@@ -18,6 +18,7 @@ Uso:
   python3 down_again.py uninstall    remove o início automático
 """
 import argparse
+import collections
 import csv
 import io
 import ipaddress
@@ -70,6 +71,7 @@ DEFAULTS = {
     "ntfy_topic": "",              # gerado na primeira execução; "" desativa
     "notify_min_seconds": 0,       # só avisa quedas com pelo menos N segundos
     "notify_monitor_gap_minutes": 5,
+    "daily_summary_hour": 9,       # resumo do dia anterior no celular a esta hora (-1 desliga)
     "speedtest_minutes": 240,      # teste de velocidade a cada N minutos (240 = 6 por dia); 0 desliga
     "speedtest_seconds": 5,        # duração de cada sentido (download e upload)
     "plan_down_mbps": 0,           # plano contratado, para comparar (0 = não informado)
@@ -129,6 +131,17 @@ TEXTS = {
         "csv.start": "Start", "csv.end": "End", "csv.dur_s": "Duration (seconds)", "csv.dur": "Duration",
         "csv.cause": "Likely cause", "csv.network": "Network", "csv.note": "Note", "csv.ongoing": "ongoing",
         "csv.stopped": "monitor stopped", "csv.file": "outages",
+        "hint.router_restart": "router restarted (new public IP)",
+        "hint.reconnect": "ISP renewed the connection (new public IP)",
+        "log.unstable": "unstable connection since {since} (packet loss or high latency)",
+        "log.unstable_end": "stable again after {dur} ({loss} failed and {slow} slow checks)",
+        "log.ip_change": "public IP changed: {old} -> {new}",
+        "daily.title.none": "Yesterday: no outages", "daily.title.one": "Yesterday: 1 outage ({d} offline)",
+        "daily.title": "Yesterday: {n} outages ({d} offline)",
+        "daily.avail": "Availability {p} · monitored {mon}", "daily.outages": "ISP's fault: {isp} · longest {d}",
+        "daily.unstable": "Unstable: {n}× ({d})", "daily.speed": "Average speed: {down} ↓ / {up} ↑ Mbps",
+        "daily.speed_plan": " ({p} of the plan)", "daily.ip": "Public IP changed {n}×",
+        "daily.footer": "Daily summary — if it stops arriving, check the monitor.",
     },
     "pt": {
         "unit.d": "d", "unit.h": "h", "unit.min": "min", "unit.s": "s",
@@ -175,6 +188,17 @@ TEXTS = {
         "csv.start": "Início", "csv.end": "Fim", "csv.dur_s": "Duração (segundos)", "csv.dur": "Duração",
         "csv.cause": "Causa provável", "csv.network": "Rede", "csv.note": "Observação", "csv.ongoing": "em andamento",
         "csv.stopped": "monitor parado", "csv.file": "quedas",
+        "hint.router_restart": "roteador reiniciou (IP público novo)",
+        "hint.reconnect": "provedor refez a conexão (IP público novo)",
+        "log.unstable": "conexão instável desde {since} (perda de pacotes ou latência alta)",
+        "log.unstable_end": "estável de novo após {dur} ({loss} testes falharam e {slow} ficaram lentos)",
+        "log.ip_change": "IP público trocou: {old} -> {new}",
+        "daily.title.none": "Ontem: nenhuma queda", "daily.title.one": "Ontem: 1 queda ({d} fora do ar)",
+        "daily.title": "Ontem: {n} quedas ({d} fora do ar)",
+        "daily.avail": "Disponibilidade {p} · monitorado {mon}", "daily.outages": "Do provedor: {isp} · maior {d}",
+        "daily.unstable": "Instável: {n}× ({d})", "daily.speed": "Velocidade média: {down} ↓ / {up} ↑ Mbps",
+        "daily.speed_plan": " ({p} do plano)", "daily.ip": "IP público trocou {n}×",
+        "daily.footer": "Resumo diário — se um dia não chegar, confira o monitor.",
     },
     "zh": {
         "unit.d": "天", "unit.h": "小时", "unit.min": "分", "unit.s": "秒",
@@ -221,6 +245,17 @@ TEXTS = {
         "csv.start": "开始", "csv.end": "结束", "csv.dur_s": "时长（秒）", "csv.dur": "时长",
         "csv.cause": "可能原因", "csv.network": "网络", "csv.note": "备注", "csv.ongoing": "进行中",
         "csv.stopped": "监控停止", "csv.file": "outages",
+        "hint.router_restart": "路由器已重启（公网 IP 已变）",
+        "hint.reconnect": "运营商重新建立了连接（公网 IP 已变）",
+        "log.unstable": "连接不稳定，开始于 {since}（丢包或延迟高）",
+        "log.unstable_end": "已恢复稳定，持续 {dur}（{loss} 次失败，{slow} 次过慢）",
+        "log.ip_change": "公网 IP 已变更：{old} -> {new}",
+        "daily.title.none": "昨天：没有断线", "daily.title.one": "昨天：1 次断线（离线 {d}）",
+        "daily.title": "昨天：{n} 次断线（离线 {d}）",
+        "daily.avail": "可用率 {p} · 监控 {mon}", "daily.outages": "运营商原因：{isp} 次 · 最长 {d}",
+        "daily.unstable": "不稳定：{n} 次（{d}）", "daily.speed": "平均网速：下行 {down} / 上行 {up} Mbps",
+        "daily.speed_plan": "（套餐的 {p}）", "daily.ip": "公网 IP 变更 {n} 次",
+        "daily.footer": "每日摘要 — 如果某天没收到，请检查监控。",
     },
 }
 LANG = "en"   # definido em load_config
@@ -264,7 +299,20 @@ CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY, ts REAL, title 
 CREATE TABLE IF NOT EXISTS speedtests(ts REAL, down_mbps REAL, up_mbps REAL, ping_ms REAL, jitter_ms REAL, error TEXT,
                                       manual INTEGER);
 CREATE INDEX IF NOT EXISTS speedtests_ts ON speedtests(ts);
+-- instabilidade (kind='unstable') e troca de IP público (kind='ip_change'); data = JSON com os detalhes
+CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, kind TEXT, start_ts REAL, end_ts REAL, data TEXT);
+CREATE INDEX IF NOT EXISTS events_start ON events(start_ts);
+CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
 """
+
+
+def meta_get(db, key, default=None):
+    row = db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def meta_set(db, key, value):
+    db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES(?,?)", (key, str(value)))
 
 
 # --------------------------------------------------------------------------
@@ -320,12 +368,20 @@ def load_config():
         fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
-    global LANG
-    LANG = cfg["language"] if cfg.get("language") in TEXTS else detect_language()
+    set_language(cfg)
     db = connect()
     db.executescript(SCHEMA)
+    # coluna nova em bancos de versões anteriores: pista da causa ("router_restart", "reconnect")
+    if "hint" not in [r[1] for r in db.execute("PRAGMA table_info(outages)")]:
+        db.execute("ALTER TABLE outages ADD COLUMN hint TEXT")
+    db.commit()
     db.close()
     return cfg
+
+
+def set_language(cfg):
+    global LANG
+    LANG = cfg["language"] if cfg.get("language") in TEXTS else detect_language()
 
 
 def run_cmd(args, timeout=5, env=None):
@@ -683,6 +739,7 @@ class Notifier:
     def __init__(self, cfg):
         self.cfg = cfg
         self.wake = threading.Event()
+        self.last_error = None          # mostrado em Ajustes: ajuda a ver por que um aviso não chegou
 
     @property
     def enabled(self):
@@ -726,6 +783,32 @@ class Notifier:
             return False, str(e)
         return r.returncode == 0, r.stderr.decode("utf-8", "replace").strip()
 
+    def daily(self, db):
+        """Resumo do dia anterior a partir de daily_summary_hour. Também prova, todo dia,
+        que o caminho dos avisos funciona: se ele não chegar, há algo errado."""
+        hour = int(self.cfg.get("daily_summary_hour", -1))
+        now = datetime.now()
+        if not self.enabled or hour < 0 or now.hour < hour:
+            return
+        day = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        key = day.strftime("%Y-%m-%d")
+        if meta_get(db, "daily_sent") == key:
+            return
+        meta_set(db, "daily_sent", key)
+        msg = daily_summary(day, self.cfg)
+        if msg:
+            self.queue(msg[0], msg[1], "bar_chart", db=db)
+        db.commit()
+
+    def stats(self):
+        db = connect()
+        try:
+            last = db.execute("SELECT MAX(sent_ts) FROM notifications").fetchone()[0]
+            pending = db.execute("SELECT COUNT(*) FROM notifications WHERE sent_ts IS NULL").fetchone()[0]
+        finally:
+            db.close()
+        return {"last_sent": last, "pending": pending, "error": self.last_error}
+
     def run(self):
         db = connect()
         while True:
@@ -734,6 +817,10 @@ class Notifier:
                 time.sleep(3)   # dá um tempo para a conexão recém-voltada estabilizar
             if not self.enabled:
                 continue
+            try:
+                self.daily(db)
+            except Exception as e:      # resumo é extra: nunca derruba o envio dos avisos
+                log(tr("log.db_error", err=repr(e)))
             rows = db.execute("SELECT id, title, body, tag FROM notifications WHERE sent_ts IS NULL "
                               "ORDER BY id LIMIT 20").fetchall()
             if not rows:
@@ -745,6 +832,7 @@ class Notifier:
                 body = "\n\n".join("%s\n%s" % (r[1], r[2]) for r in rows)
                 tags = [rows[-1][3]]
             ok, err = self.send(title, body, tags)
+            self.last_error = None if ok else (err or "?")
             if ok:
                 ids = [r[0] for r in rows]
                 db.execute("UPDATE notifications SET sent_ts=? WHERE id IN (%s)" % ",".join("?" * len(ids)),
@@ -878,6 +966,16 @@ class SpeedTester:
         self.wake.set()
         return True
 
+    def reschedule(self):
+        """Frequência mudou pelo painel: o próximo teste conta a partir do último."""
+        db = connect()
+        try:
+            last = db.execute("SELECT MAX(ts) FROM speedtests").fetchone()[0] or 0
+        finally:
+            db.close()
+        self.next_ts = max(time.time() + 60, last + self.period) if self.period else None
+        self.wake.set()
+
     def status(self):
         db = connect()
         try:
@@ -922,16 +1020,38 @@ class SpeedTester:
             self.next_ts = time.time() + self.period if self.period else None
 
 
-def parse_plan(body):
-    """Plano contratado enviado pelo painel: {"down": Mbps, "up": Mbps}; 0 = não informado."""
+SPEED_CHOICES = (0, 60, 120, 240, 360, 720, 1440)     # minutos entre testes de velocidade
+
+
+def parse_settings(body):
+    """Ajustes enviados pelo painel. Só estas chaves, com valores conferidos; o resto do
+    config.json (tópico e servidor do ntfy, rede) continua só no arquivo."""
     data = json.loads(body.decode("utf-8") or "{}")
-    plan = {}
-    for key in ("down", "up"):
-        value = float(data.get(key) or 0)
-        if not 0 <= value <= 100000:
-            raise ValueError("plan out of range")
-        plan[key] = round(value, 1)
-    return plan
+    if not isinstance(data, dict) or not data:
+        raise ValueError("empty")
+    out = {}
+    for key, value in data.items():
+        if key in ("plan_down_mbps", "plan_up_mbps"):
+            v = float(value or 0)
+            if not 0 <= v <= 100000:
+                raise ValueError(key)
+            out[key] = round(v, 1)
+        elif key in ("speedtest_minutes", "daily_summary_hour", "notify_min_seconds"):
+            if isinstance(value, bool) or int(value) != value:
+                raise ValueError(key)
+            v = int(value)
+            ok = {"speedtest_minutes": v in SPEED_CHOICES, "daily_summary_hour": -1 <= v <= 23,
+                  "notify_min_seconds": 0 <= v <= 86400}[key]
+            if not ok:
+                raise ValueError(key)
+            out[key] = v
+        elif key == "language":
+            if value not in ("auto",) + tuple(TEXTS):
+                raise ValueError(key)
+            out[key] = value
+        else:
+            raise ValueError("unknown setting")
+    return out
 
 
 def save_config(cfg):
@@ -941,6 +1061,157 @@ def save_config(cfg):
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
     os.replace(tmp, CONFIG_PATH)
+
+
+# --------------------------------------------------------------------------
+# instabilidade: perda de pacotes ou latência alta sem a internet cair de vez
+
+class Stability:
+    """Janela deslizante dos últimos testes. Vídeo travando e chamada picotando aparecem aqui:
+    testes que falham sozinhos (sem virar queda) ou bem mais lentos que o normal desta conexão."""
+    WINDOW = 12          # ~1 min com testes a cada 5 s
+    OPEN_AT = 4          # testes ruins na janela para começar
+    CLOSE_AT = 1         # no máximo isso na janela para terminar
+    MIN_SLOW_MS = 150    # abaixo disso nunca conta como lento
+
+    def __init__(self):
+        self.win = collections.deque(maxlen=self.WINDOW)
+        self.normal = collections.deque(maxlen=720)      # latências normais da última ~1 h
+        self.baseline = None
+        self.episode = None
+        self.fed = 0
+
+    def limit(self):
+        """Lento = 3x a mediana habitual (mínimo 150 ms). Sem histórico ainda: 300 ms."""
+        return max(self.MIN_SLOW_MS, 3 * self.baseline) if self.baseline else 2 * self.MIN_SLOW_MS
+
+    def reset(self):
+        self.win.clear()
+
+    def feed(self, ts, state, net_ms):
+        """Registra um teste fora de queda. Devolve "open", "close" ou None."""
+        lost = state != "ok"
+        slow = not lost and net_ms is not None and net_ms > self.limit()
+        if not (lost or slow) and net_ms is not None and not self.episode:
+            self.normal.append(net_ms)
+            self.fed += 1
+            if self.fed % self.WINDOW == 0 and len(self.normal) >= 2 * self.WINDOW:
+                ordered = sorted(self.normal)
+                self.baseline = ordered[len(ordered) // 2]
+        self.win.append((ts, lost, slow, None if lost else net_ms))
+        bad = sum(1 for _, l, sl, _ in self.win if l or sl)
+        ep = self.episode
+        if ep:
+            ep["n"] += 1
+            ep["loss"] += lost
+            ep["slow"] += slow
+            if not lost and net_ms is not None:
+                ep["max_ms"] = max(ep["max_ms"] or 0, net_ms)
+            if lost or slow:
+                ep["last_bad"] = ts
+            return "close" if bad <= self.CLOSE_AT else None
+        if bad < self.OPEN_AT:
+            return None
+        first = next(t for t, l, sl, _ in self.win if l or sl)
+        part = [x for x in self.win if x[0] >= first]
+        self.episode = {"start": first, "last_bad": ts, "n": len(part), "loss": sum(1 for x in part if x[1]),
+                        "slow": sum(1 for x in part if x[2]),
+                        "max_ms": max((x[3] for x in part if x[3] is not None), default=None),
+                        "limit_ms": round(self.limit())}
+        return "open"
+
+
+PUBLIC_IP_URL = "https://1.1.1.1/cdn-cgi/trace"     # só IPv4; responde várias linhas, entre elas "ip=..."
+
+
+def parse_trace(text):
+    for line in (text or "").splitlines():
+        if line.startswith("ip="):
+            ip = line[3:].strip()
+            return ip if is_ip(ip) else None
+    return None
+
+
+def fetch_public_ip(timeout=8):
+    curl = curl_bin()
+    if curl:
+        code, out = run_cmd([curl, "-q", "-sS", "-m", str(timeout), PUBLIC_IP_URL], timeout=timeout + 2)
+        return parse_trace(out) if code == 0 else None
+    try:
+        req = Request(PUBLIC_IP_URL, headers={"User-Agent": "down-again"})
+        return parse_trace(urlopen(req, timeout=timeout).read(2048).decode("ascii", "replace"))
+    except Exception:
+        return None
+
+
+class PublicIP:
+    """IP público a cada 10 min e logo depois de cada queda. Trocar de IP quer dizer que a sessão
+    com o provedor foi refeita: depois de uma queda local, o roteador provavelmente reiniciou;
+    sem queda nenhuma, foi uma reconexão rápida demais para o monitor ver (menos de ~10 s)."""
+    PERIOD = 600
+    AFTER_OUTAGE = 20
+
+    def __init__(self, monitor):
+        self.monitor = monitor
+        self.wake = threading.Event()
+        self.soon = False
+        self.ip = self.since = self.checked = None
+
+    def poke(self):
+        self.soon = True
+        self.wake.set()
+
+    def status(self):
+        return {"ip": self.ip, "since": self.since, "checked": self.checked} if self.ip else None
+
+    def check(self, db, ip, now):
+        last_ok = float(meta_get(db, "public_ip_checked", 0) or 0)
+        if self.ip and ip != self.ip:
+            self.changed(db, self.ip, ip, last_ok, now)
+            self.since = now
+        elif not self.ip:
+            self.since = now
+        self.ip, self.checked = ip, now
+        meta_set(db, "public_ip", ip)
+        meta_set(db, "public_ip_since", self.since)
+        meta_set(db, "public_ip_checked", now)
+        db.commit()
+
+    def changed(self, db, old, new, last_ok, now):
+        data = {"old": old, "new": new}
+        # queda que terminou depois da última leitura: a troca veio com ela
+        row = db.execute("SELECT id, cause FROM outages WHERE end_ts >= ? ORDER BY end_ts DESC LIMIT 1",
+                         (last_ok,)).fetchone() if last_ok else None
+        if row:
+            hint = "router_restart" if row[1] in ("local", "unknown") else "reconnect"
+            db.execute("UPDATE outages SET hint=? WHERE id=?", (hint, row[0]))
+            data.update(outage=row[0], hint=hint)
+        elif not last_ok or now - last_ok > 2 * self.PERIOD:
+            data["late"] = True          # muito tempo sem ler (monitor parado): não dá para saber quando
+        else:
+            data["silent"] = True
+        db.execute("INSERT INTO events(kind, start_ts, end_ts, data) VALUES('ip_change', ?, ?, ?)",
+                   (last_ok or now, now, json.dumps(data)))
+        log(tr("log.ip_change", old=old, new=new))
+
+    def run(self):
+        db = connect()
+        self.ip = meta_get(db, "public_ip")
+        self.since = float(meta_get(db, "public_ip_since", 0) or 0) or None
+        time.sleep(15)                      # deixa os primeiros testes de conexão acontecerem
+        while True:
+            if self.monitor.get_status()["state"] == "up" and not self.monitor.paused:
+                ip = fetch_public_ip()
+                if ip:
+                    try:
+                        self.check(db, ip, time.time())
+                    except sqlite3.Error as e:
+                        log(tr("log.db_error", err=repr(e)))
+            if self.wake.wait(self.PERIOD):
+                self.wake.clear()
+                if self.soon:
+                    self.soon = False
+                    time.sleep(self.AFTER_OUTAGE)   # dá tempo do roteador refazer a sessão
 
 
 # --------------------------------------------------------------------------
@@ -959,6 +1230,9 @@ class Monitor:
         self.last_prune = 0
         self.net, self.net_ts = None, 0
         self.paused = False                       # True durante o teste de velocidade
+        self.stab = Stability()
+        self.last_unstable = None                 # último episódio fechado (junta os muito próximos)
+        self.on_back = None                       # chamado quando uma queda termina (confere o IP público)
         self.db = connect()
 
         now = time.time()
@@ -967,6 +1241,8 @@ class Monitor:
         self.db.execute("UPDATE outages SET end_ts = COALESCE((SELECT MAX(ts) FROM samples "
                         "WHERE ts >= outages.start_ts), start_ts), ended_by = 'monitor parado' "
                         "WHERE end_ts IS NULL")
+        self.db.execute("UPDATE events SET end_ts = COALESCE((SELECT MAX(ts) FROM samples "
+                        "WHERE ts >= events.start_ts), start_ts) WHERE end_ts IS NULL")
         self.session_id = self.db.execute("INSERT INTO sessions(start_ts, end_ts) VALUES(?,?)",
                                           (now, now)).lastrowid
         self.db.commit()
@@ -975,7 +1251,7 @@ class Monitor:
         # "sem quedas há X" continua contando da última queda registrada, mesmo após reiniciar
         last_out = self.db.execute("SELECT MAX(end_ts) FROM outages").fetchone()[0]
         self.status = {"state": "starting", "since": last_out or now, "since_start": not last_out, "started": now,
-                       "last": None, "probe": None, "outage": None, "pending": 0}
+                       "last": None, "probe": None, "outage": None, "pending": 0, "unstable": None}
 
     def get_status(self):
         with self.lock:
@@ -988,6 +1264,7 @@ class Monitor:
                 # Conta como monitorado (não vira "não monitorado" nem queda).
                 if self.last_ts is not None:
                     self.last_ts = time.time()
+                self.stab.reset()                 # latência durante o teste não é instabilidade
                 time.sleep(1)
                 continue
             t0 = time.time()
@@ -1014,6 +1291,13 @@ class Monitor:
                         (ts, state, p["gw_ms"], p["net_ms"], int(p["http_ok"]), self.net.get("rssi")))
         self.db.execute("UPDATE sessions SET end_ts=? WHERE id=?", (ts, self.session_id))
 
+        if self.outage is None:
+            ev = self.stab.feed(ts, state, p["net_ms"])
+            if ev == "open":
+                self._unstable_open()
+            elif ev == "close":
+                self._unstable_close(self.stab.episode["last_bad"])
+
         if state == "ok":
             self.pending = []
             if self.outage:
@@ -1024,6 +1308,12 @@ class Monitor:
             self.pending.append((ts, state))
             if len(self.pending) >= self.cfg["fail_threshold"]:
                 self._open()
+        if self.outage:
+            # virou queda: a instabilidade termina onde a queda começa
+            if self.stab.episode:
+                self._unstable_close(min(self.stab.episode["last_bad"], self.outage["start"]))
+            self.stab.reset()
+            self.last_unstable = None
 
         if ts - self.last_prune > 3600:
             self.db.execute("DELETE FROM samples WHERE ts < ?", (ts - self.cfg["keep_samples_days"] * 86400,))
@@ -1038,6 +1328,8 @@ class Monitor:
                            "net_ms": p["net_ms"], "http_ok": p["http_ok"]}
             st["pending"] = len(self.pending)
             st["net"] = self.net
+            ep = self.stab.episode
+            st["unstable"] = {k: ep[k] for k in ("start", "n", "loss", "slow", "max_ms")} if ep else None
             if self.outage:
                 o = self.outage
                 st["state"] = "down"
@@ -1066,6 +1358,8 @@ class Monitor:
         with self.lock:
             self.status.update(since=ts, since_start=False)
         log(tr("log.back", dur=fmt_dur(dur), cause=cause_label(cause)))
+        if self.on_back and ended_by == "voltou":
+            self.on_back()
         if notify and dur >= self.cfg["notify_min_seconds"]:
             today = self.db.execute("SELECT COUNT(*) FROM outages WHERE start_ts >= ?",
                                     (midnight(ts),)).fetchone()[0]
@@ -1075,9 +1369,42 @@ class Monitor:
                    dur=fmt_dur(dur), cause=cause_label(cause), today=today),
                 "green_circle", db=self.db)
 
+    def _unstable_open(self):
+        ep, prev = self.stab.episode, self.last_unstable
+        if prev and ep["start"] - prev["end"] < 120:
+            # voltou a ficar instável logo depois: é o mesmo episódio
+            ep["id"], ep["start"] = prev["id"], prev["start"]
+            for k in ("n", "loss", "slow"):
+                ep[k] += prev[k]
+            ep["max_ms"] = max([v for v in (ep["max_ms"], prev["max_ms"]) if v is not None], default=None)
+            self.db.execute("UPDATE events SET end_ts=NULL WHERE id=?", (ep["id"],))
+            return
+        ep["id"] = self.db.execute("INSERT INTO events(kind, start_ts) VALUES('unstable', ?)",
+                                   (ep["start"],)).lastrowid
+        log(tr("log.unstable", since=fmt_ts(ep["start"], "%H:%M:%S")))
+
+    def _unstable_close(self, end):
+        ep, self.stab.episode = self.stab.episode, None
+        if end <= ep["start"]:
+            # eram só as primeiras falhas da queda que veio em seguida
+            self.db.execute("DELETE FROM events WHERE id=?", (ep["id"],))
+            self.last_unstable = None
+            return
+        data = {k: ep[k] for k in ("n", "loss", "slow", "max_ms", "limit_ms")}
+        self.db.execute("UPDATE events SET end_ts=?, data=? WHERE id=?", (end, json.dumps(data), ep["id"]))
+        self.last_unstable = dict(ep, end=end)
+        log(tr("log.unstable_end", dur=fmt_dur(end - ep["start"]), loss=ep["loss"], slow=ep["slow"]))
+
+    def _end_unstable(self, at):
+        if self.stab.episode:
+            self._unstable_close(min(self.stab.episode["last_bad"], at))
+        self.stab.reset()
+        self.last_unstable = None
+
     def _gap(self, a, b):
         self.db.execute("INSERT INTO gaps VALUES(?,?)", (a, b))
         self.pending = []
+        self._end_unstable(a)
         if self.outage:
             self._close(a, "monitor parado", notify=False)
         with self.lock:
@@ -1095,6 +1422,8 @@ class Monitor:
     def stop(self):
         if self.outage and self.last_ts:
             self._close(self.last_ts, "monitor parado", notify=False)
+        if self.last_ts:
+            self._end_unstable(self.last_ts)
         self.db.commit()
 
 
@@ -1143,6 +1472,22 @@ def latency_stats(db, col, t0, t1):
     return {"n": n, "avg": avg, "p50": pct(0.5), "p95": pct(0.95), "max": mx, "slow_pct": slow / n}
 
 
+def load_events(db, t0, t1, now, latest=None):
+    """Eventos do período (ou os `latest` mais recentes), do mais antigo ao mais novo."""
+    if latest:
+        rows = db.execute("SELECT kind, start_ts, end_ts, data FROM events ORDER BY start_ts DESC LIMIT ?",
+                          (latest,)).fetchall()[::-1]
+    else:
+        rows = db.execute("SELECT kind, start_ts, end_ts, data FROM events WHERE COALESCE(end_ts, ?) > ? AND start_ts < ? "
+                          "ORDER BY start_ts", (now, t0, t1)).fetchall()
+    out = []
+    for kind, a, b, data in rows:
+        end = b if b is not None else now
+        out.append({"kind": kind, "start": a, "end": end, "dur": end - a, "ongoing": b is None,
+                    "data": json.loads(data) if data else {}})
+    return out
+
+
 def summarize(t0, t1):
     now = time.time()
     db = connect()
@@ -1153,16 +1498,18 @@ def summarize(t0, t1):
         gaps = db.execute("SELECT start_ts, end_ts FROM gaps WHERE end_ts > ? AND start_ts < ?",
                           (t0, t1)).fetchall()
         mon = sorted(clip(subtract(sessions, gaps), t0, t1))
-        rows = db.execute("SELECT start_ts, end_ts, cause, ended_by, network FROM outages "
+        rows = db.execute("SELECT start_ts, end_ts, cause, ended_by, network, hint FROM outages "
                           "WHERE COALESCE(end_ts, ?) > ? AND start_ts < ? ORDER BY start_ts",
                           (now, t0, t1)).fetchall()
         outages = []
-        for s, e, c, how, net in rows:
+        for s, e, c, how, net, hint in rows:
             e_ = e if e is not None else now
             rssi = db.execute("SELECT AVG(rssi) FROM samples WHERE ts >= ? AND ts <= ? AND rssi IS NOT NULL",
                               (s - 60, e_)).fetchone()[0]
             outages.append({"start": s, "end": e_, "dur": e_ - s, "cause": c or "unknown", "ended_by": how,
-                            "ongoing": e is None, "network": net, "rssi": rssi})
+                            "ongoing": e is None, "network": net, "rssi": rssi, "hint": hint})
+        events = load_events(db, t0, t1, now)
+        uns = clip([(x["start"], x["end"]) for x in events if x["kind"] == "unstable"], t0, t1)
         clipped = clip([(o["start"], o["end"], o["cause"]) for o in outages], t0, t1)
 
         mon_s = sum(b - a for a, b in mon)
@@ -1187,7 +1534,8 @@ def summarize(t0, t1):
                          "count": sum(1 for o in outages if ds <= o["start"] < de),
                          "isp": sum(1 for o in outages if ds <= o["start"] < de and o["cause"] == "isp"),
                          "avail": (dm - dd) / dm if dm else None,
-                         "mon": clip(mon, ds, de), "out": clip(clipped, ds, de)})
+                         "unstable": sum(1 for x in events if x["kind"] == "unstable" and ds <= x["start"] < de),
+                         "mon": clip(mon, ds, de), "out": clip(clipped, ds, de), "uns": clip(uns, ds, de)})
             d += timedelta(days=1)
 
         # hora do dia
@@ -1222,6 +1570,9 @@ def summarize(t0, t1):
             "latency": latency_stats(db, "net_ms", t0, t1),
             "gw_latency": latency_stats(db, "gw_ms", t0, t1),
             "samples": n_samples, "fail_pct": (n_fail or 0) / n_samples if n_samples else None,
+            "events": events,
+            "unstable": {"count": sum(1 for x in events if x["kind"] == "unstable"), "dur_s": sum(b - a for a, b in uns)},
+            "ip_changes": sum(1 for x in events if x["kind"] == "ip_change" and t0 <= x["end"] < t1),
         }
     finally:
         db.close()
@@ -1240,6 +1591,17 @@ def glance():
                           (now, now, min(start_30d, now - 86400))).fetchall()
         last = db.execute("SELECT start_ts, end_ts, cause FROM outages ORDER BY start_ts DESC LIMIT 1").fetchone()
         first = db.execute("SELECT MIN(start_ts) FROM sessions").fetchone()[0]
+        # acontecimentos recentes: quedas, instabilidade e trocas de IP (a troca ligada a uma queda
+        # aparece como detalhe dela)
+        recent = [{"kind": "outage", "start": s, "end": e if e is not None else now, "dur": (e if e is not None else now) - s,
+                   "ongoing": e is None, "cause": c or "unknown", "hint": h}
+                  for s, e, c, h in db.execute("SELECT start_ts, end_ts, cause, hint FROM outages "
+                                               "ORDER BY start_ts DESC LIMIT 8")]
+        recent += [x for x in load_events(db, 0, 0, now, latest=24)
+                   if not (x["kind"] == "ip_change" and x["data"].get("outage"))]
+        recent.sort(key=lambda x: x["end"] if x["kind"] == "ip_change" else x["start"], reverse=True)
+        unstable_24h = db.execute("SELECT COUNT(*) FROM events WHERE kind='unstable' AND COALESCE(end_ts, ?) > ?",
+                                  (now, now - 86400)).fetchone()[0]
     finally:
         db.close()
 
@@ -1249,6 +1611,7 @@ def glance():
                 "isp": sum(1 for _, _, c in hit if c == "isp")}
 
     return {"now": now, "since": first, "h24": window(now - 86400), "d7": window(start_7d), "d30": window(start_30d),
+            "recent": recent[:8], "unstable_24h": unstable_24h,
             "last": {"start": last[0], "end": last[1] if last[1] is not None else now, "cause": last[2] or "unknown",
                      "ongoing": last[1] is None} if last else None}
 
@@ -1278,6 +1641,43 @@ def speed_stats(t0, t1, cfg):
         "minutes": cfg.get("speedtest_minutes"), "seconds": cfg.get("speedtest_seconds"),
         "streams": SPEED_STREAMS, "server": SPEED_HOST,
     }
+
+
+def fmt_pct(x, lang=None, n=2):
+    if x is None:
+        return "—"
+    text = "100" if x >= 0.99995 and n >= 2 else "%.*f" % (n, x * 100)
+    return (text.replace(".", ",") if (lang or LANG) == "pt" else text) + "%"
+
+
+def daily_summary(day, cfg, lang=None):
+    """(título, texto) do aviso da manhã sobre o dia que começa em `day`; None se mal foi monitorado."""
+    t0, t1 = day.timestamp(), (day + timedelta(days=1)).timestamp()
+    s = summarize(t0, t1)
+    if s["mon_s"] < 3600:
+        return None
+    sp = speed_stats(t0, t1, cfg)
+    if not s["count"]:
+        title = tr("daily.title.none", lang)
+    elif s["count"] == 1:
+        title = tr("daily.title.one", lang, d=fmt_dur(s["down_s"], lang))
+    else:
+        title = tr("daily.title", lang, n=s["count"], d=fmt_dur(s["down_s"], lang))
+    lines = [tr("daily.avail", lang, p=fmt_pct(s["avail"], lang), mon=fmt_dur(s["mon_s"], lang))]
+    if s["count"]:
+        isp = s["causes"].get("isp", {"count": 0})["count"]
+        lines.append(tr("daily.outages", lang, isp=isp, d=fmt_dur(s["longest"]["dur"], lang)))
+    if s["unstable"]["count"]:
+        lines.append(tr("daily.unstable", lang, n=s["unstable"]["count"], d=fmt_dur(s["unstable"]["dur_s"], lang)))
+    if sp["count"]:
+        line = tr("daily.speed", lang, down="%.0f" % sp["down"]["avg"], up="%.0f" % (sp["up"]["avg"] if sp["up"] else 0))
+        if sp["plan"]["down"]:
+            line += tr("daily.speed_plan", lang, p=fmt_pct(sp["down"]["avg"] / sp["plan"]["down"], lang, 0))
+        lines.append(line)
+    if s["ip_changes"]:
+        lines.append(tr("daily.ip", lang, n=s["ip_changes"]))
+    lines.append(tr("daily.footer", lang))
+    return title, "\n".join(lines)
 
 
 def timeseries(hours):
@@ -1312,6 +1712,8 @@ def outages_csv(s, lang=None):
             note = tr("csv.stopped", lang)
         else:
             note = "" if o["ended_by"] in ("voltou", None) else o["ended_by"]
+        if o.get("hint"):
+            note = "; ".join(x for x in (note, tr("hint." + o["hint"], lang)) if x)
         w.writerow([fmt_ts(o["start"], stamp), fmt_ts(o["end"], stamp), "%d" % round(o["dur"]),
                     fmt_dur(o["dur"], lang), cause_label(o["cause"], lang), o["network"] or "", note])
     return "\ufeff" + out.getvalue()   # BOM: o Excel abre como UTF-8
@@ -1395,6 +1797,7 @@ class Handler(BaseHTTPRequestHandler):
     last_test = 0
     last_speed = 0
     speed = None                 # SpeedTester (preenchido em cmd_run)
+    pubip = None                 # PublicIP (preenchido em cmd_run)
     test_lock = threading.Lock()
 
     def log_message(self, *args):
@@ -1431,6 +1834,7 @@ class Handler(BaseHTTPRequestHandler):
                 st["now"] = time.time()
                 st["interval"] = self.cfg["interval"]
                 st["speed"] = self.speed.status() if self.speed else None
+                st["public_ip"] = self.pubip.status() if self.pubip else None
                 return self.json(st)
             if u.path == "/api/speedtests":
                 return self.json(speed_stats(*(parse_range(q) + (self.cfg,))))
@@ -1456,6 +1860,10 @@ class Handler(BaseHTTPRequestHandler):
                     "platform": PLATFORM, "language": LANG,
                     "speedtest_minutes": self.cfg["speedtest_minutes"], "speedtest_seconds": self.cfg["speedtest_seconds"],
                     "plan_down_mbps": self.cfg["plan_down_mbps"], "plan_up_mbps": self.cfg["plan_up_mbps"],
+                    "unstable": {"window": Stability.WINDOW, "open": Stability.OPEN_AT, "min_slow_ms": Stability.MIN_SLOW_MS},
+                    "speed_choices": SPEED_CHOICES, "daily_summary_hour": self.cfg["daily_summary_hour"],
+                    "notify_min_seconds": self.cfg["notify_min_seconds"], "language_setting": self.cfg["language"],
+                    "notify": self.notifier.stats() if self.notifier.enabled else None,
                 })
         except (ValueError, OverflowError, OSError):
             return self.json({"error": "invalid period (use YYYY-MM-DD, up to %d days)" % MAX_RANGE_DAYS}, 400)
@@ -1465,7 +1873,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.check_host():
             return
         u = urlparse(self.path)
-        if u.path not in ("/api/test-notify", "/api/speedtest", "/api/plan"):
+        if u.path not in ("/api/test-notify", "/api/speedtest", "/api/settings"):
             return self.send(404, "not found", "text/plain; charset=utf-8")
         # Cabeçalho próprio força preflight de CORS (que não respondemos): outro site não consegue disparar.
         # As respostas trazem um código; o painel mostra a mensagem no idioma de quem está vendo.
@@ -1473,8 +1881,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json({"ok": False, "code": "refused"}, 403)
         if u.path == "/api/speedtest":
             return self.post_speedtest()
-        if u.path == "/api/plan":
-            return self.post_plan()
+        if u.path == "/api/settings":
+            return self.post_settings()
         with Handler.test_lock:
             wait = 30 - (time.time() - Handler.last_test)
             if wait > 0:
@@ -1500,17 +1908,22 @@ class Handler(BaseHTTPRequestHandler):
             Handler.last_speed = time.time()
         return self.json({"ok": True})
 
-    def post_plan(self):
+    def post_settings(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            if not 0 < length <= 1024:
+            if not 0 < length <= 2048:
                 raise ValueError("bad length")
-            plan = parse_plan(self.rfile.read(length))
-        except (ValueError, TypeError, AttributeError):
+            changes = parse_settings(self.rfile.read(length))
+        except (ValueError, TypeError, AttributeError, OverflowError):
             return self.json({"ok": False, "code": "invalid"}, 400)
-        self.cfg["plan_down_mbps"], self.cfg["plan_up_mbps"] = plan["down"], plan["up"]
-        save_config(self.cfg)
-        return self.json({"ok": True, "plan": plan})
+        with Handler.test_lock:
+            self.cfg.update(changes)
+            save_config(self.cfg)
+        if "language" in changes:
+            set_language(self.cfg)
+        if "speedtest_minutes" in changes and self.speed:
+            self.speed.reschedule()
+        return self.json({"ok": True, "settings": changes})
 
     def req_lang(self, q):
         lang = q.get("lang", [""])[0]
@@ -1544,6 +1957,9 @@ def cmd_run(cfg):
     threading.Thread(target=notifier.run, daemon=True).start()
     Handler.speed = SpeedTester(cfg, monitor)
     threading.Thread(target=Handler.speed.run, daemon=True).start()
+    Handler.pubip = PublicIP(monitor)
+    monitor.on_back = Handler.pubip.poke
+    threading.Thread(target=Handler.pubip.run, daemon=True).start()
 
     log(tr("log.started", os=PLATFORM, n=cfg["interval"]))
     if not IS_MAC:

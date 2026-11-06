@@ -21,9 +21,11 @@
 - 🟢 **Live status**: online or offline, with a timer and the likely cause.
 - 🔍 **Who's to blame**: the ISP, your Wi-Fi or DNS.
 - 📊 **History**: daily timeline and outage counts for 24 h, 7 days and 30 days.
+- 〰️ **Instability**: catches packet loss and lag spikes that don't fully drop the connection.
+- 🔁 **Public IP changes**: spots silent ISP reconnects and router restarts.
 - 🚀 **Speed tests**: 6 times a day, compared with the plan you pay for.
 - 🧾 **ISP report**: print or save as PDF, plus CSV for spreadsheets.
-- 📱 **Phone alerts**: a message as soon as the internet is back.
+- 📱 **Phone alerts**: a message as soon as the internet is back, plus a summary every morning.
 - 📲 **Works like an app**: add it to your phone's home screen, or scan the QR code on the dashboard.
 - 🌐 **3 languages**: English, Português and 中文.
 - 🪶 **Zero dependencies**: just Python. The dashboard works even with the internet down.
@@ -32,7 +34,7 @@
 
 <table>
   <tr>
-    <td width="34%" valign="top"><img src="docs/en/demo.gif" alt="Phone dashboard: an ISP outage, recovery and theme switch"></td>
+    <td width="34%" valign="top"><img src="docs/en/demo.gif" alt="Phone dashboard: an ISP outage, recovery and the History tab"></td>
     <td valign="top">
       <img src="docs/en/dashboard.png" alt="Dashboard on the desktop"><br><br>
       <img src="docs/en/report.png" alt="ISP report summary">
@@ -92,6 +94,9 @@ An outage is recorded after 2 failed checks in a row.
 | Router never answers ping | Unknown |
 
 Time when the computer is off or asleep is marked as *not monitored*. It is never counted as an outage.
+
+**Unstable** periods are when the internet stays up but checks fail now and then or get much slower than usual (at least 4 bad checks in a minute).
+The **public IP** is read every 10 minutes and after each outage. A new IP after a local outage means the router most likely restarted; a new IP with no outage means the ISP reconnected in a few seconds.
 </details>
 
 <details>
@@ -108,12 +113,13 @@ Time when the computer is off or asleep is marked as *not monitored*. It is neve
 | `ntfy_topic` | random | ntfy topic. Use `""` to turn alerts off |
 | `ntfy_server` | `https://ntfy.sh` | Your own ntfy server, if you have one |
 | `notify_min_seconds` | `0` | Only alert about outages at least this long |
+| `daily_summary_hour` | `9` | Hour of the daily summary on your phone. `-1` turns it off |
 | `keep_samples_days` | `120` | Days of raw checks to keep (outages are kept forever) |
 | `speedtest_minutes` | `240` | Speed test interval in minutes (240 = 6 a day). `0` turns it off |
 | `speedtest_seconds` | `5` | Duration of each direction (download and upload) |
 | `plan_down_mbps` / `plan_up_mbps` | `0` | Your plan, to compare each test (you can also set it on the dashboard) |
 
-Restart down-again after editing.
+Restart down-again after editing. The plan, speed test frequency, daily summary and alert options can also be changed in the dashboard's **Settings** tab, no restart needed.
 
 **Speed tests use data.** Each one runs 6 parallel connections to Cloudflare (`speed.cloudflare.com`) for 5 s per direction. On a 500 Mbps plan that's about 500 MB per test, so roughly 90 GB a month at 6 tests a day. Adjust `speedtest_minutes` to test more or less often. Outage detection pauses during each test, and the results are indicative: an official measurement uses your regulator's tool.
 </details>
@@ -140,7 +146,7 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 <summary><b>API</b></summary>
 
 `GET /api/status`, `/api/glance`, `/api/summary?from=&to=`, `/api/timeseries?hours=`, `/api/outages.csv?from=&to=&lang=` and `/api/config`.
-`POST /api/test-notify` requires the `X-Down-Again: 1` header.
+`POST /api/test-notify`, `/api/speedtest` and `/api/settings` require the `X-Down-Again: 1` header.
 </details>
 
 ---

@@ -10,9 +10,11 @@ down-again is a home internet outage monitor that runs on an always-on computer.
 1. **Monitor thread** (`Monitor` in `down_again.py`): every `interval` seconds it pings the router, opens a TCP connection to public IPs and fetches a URL by name. It classifies the result (`ok`, `isp`, `local`, `dns`, `unknown`) and writes it to SQLite.
 2. **HTTP server** (`Handler`): serves the dashboard (`static/`) and a small JSON API on the LAN.
 
-When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows.
+When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows. The queue lives in the `notifications` table; code that already holds an open transaction (the monitor) must pass its own connection to `Notifier.queue(..., db=)`, or the second connection waits for the lock and the alert is lost. The notifier also sends a daily summary (`daily_summary`) at `daily_summary_hour`, once per day (`meta.daily_sent`).
 
-A third thread (`SpeedTester`) runs a speed test every `speedtest_minutes`, or on demand from `POST /api/speedtest`. It runs 6 parallel `curl` transfers to `speed.cloudflare.com`; curl, not Python, so it reaches 500+ Mbps on old Macs. It sets `Monitor.paused` while testing, because a saturated link must not be recorded as an outage. Results go to the `speedtests` table and the plan (`plan_down_mbps` / `plan_up_mbps`) can be saved from the dashboard (`POST /api/plan`). The demo replaces `run_speedtest` with fake numbers so it never uses the network.
+Outside outages, `Stability` keeps a sliding window of the last 12 checks: 4 failed or slow ones (3× the usual median latency, at least 150 ms) open an **unstable** episode, stored in `events` (`kind='unstable'`). `PublicIP` reads the public IP from `https://1.1.1.1/cdn-cgi/trace` every 10 minutes and after each outage; a change becomes an `ip_change` event and, if an outage ended since the last read, sets that outage's `hint` (`router_restart` after a local outage, `reconnect` after an ISP one).
+
+A third thread (`SpeedTester`) runs a speed test every `speedtest_minutes`, or on demand from `POST /api/speedtest`. It runs 6 parallel `curl` transfers to `speed.cloudflare.com`; curl, not Python, so it reaches 500+ Mbps on old Macs. It sets `Monitor.paused` while testing, because a saturated link must not be recorded as an outage. Results go to the `speedtests` table and the plan (`plan_down_mbps` / `plan_up_mbps`) can be saved from the dashboard (`POST /api/settings`, which only accepts the keys validated in `parse_settings`). The demo replaces `run_speedtest` with fake numbers so it never uses the network.
 
 ## Platforms
 
@@ -56,7 +58,7 @@ These are not style preferences. Breaking any of them breaks real installs.
 
 The UI, the report, phone alerts, the CSV and the terminal all come in `en`, `pt` and `zh`.
 
-- **Dashboard and report:** strings live in `static/i18n.js` (a JSON-compatible `I18N` object). Static HTML uses `data-i18n`, `data-i18n-html` or `data-i18n-title`; JS uses `NM.t("key", {vars})`. The language comes from the viewer's browser or the flag menu, and changing it reloads the page. Dates and numbers use `Intl` with the matching locale.
+- **Dashboard and report:** strings live in `static/i18n.js` (a JSON-compatible `I18N` object). Static HTML uses `data-i18n`, `data-i18n-html` or `data-i18n-title`; JS uses `NM.t("key", {vars})`. The language comes from the viewer's browser or the flag buttons in the Settings tab (the report page has a flag menu), and changing it reloads the page. Dates and numbers use `Intl` with the matching locale.
 - **Server** (alerts, CSV, terminal): strings live in `TEXTS` in `down_again.py`, and you use `tr("key", lang, **vars)`. The language comes from `language` in `config.json` (`auto` follows the system, see `detect_language`). The CSV and the test alert follow the viewer's language via `?lang=`.
 - Add every new key to **all three languages** with the same `{placeholders}`. `tests/test_i18n.py` fails otherwise, and it also checks that every key used in HTML/JS exists.
 - Stored values are language-neutral codes (`isp`, `local`, `dns`, `unknown`; `ended_by` uses the historical codes `voltou` and `monitor parado`). Translate them only when displaying.
@@ -64,6 +66,7 @@ The UI, the report, phone alerts, the CSV and the terminal all come in `en`, `pt
 
 ## Security rules
 
+- The dashboard stays open all day on old machines: no continuous animations (only the outage ring pulses), and update the DOM through `setText`/`setHTML`/`setClass` in `app.js`, which skip writes when nothing changed. Timers do nothing while the tab is hidden.
 - Escape every value that comes from the system, the database or config before it reaches `innerHTML`. Use `NM.esc()` from `static/common.js`. Wi-Fi SSIDs are attacker-controlled strings.
 - Tooltips: `data-tip` is rendered with `innerHTML`.
   - Written in an HTML template (`data-tip="${esc(html)}"`): escape the inner values and then the whole attribute.
@@ -81,7 +84,7 @@ The UI, the report, phone alerts, the CSV and the terminal all come in `en`, `pt
 
 ```
 down_again.py         monitor, notifier, statistics (summarize/glance/timeseries), HTTP handler, CLI
-static/index.html     dashboard markup           static/app.js     dashboard logic
+static/index.html     dashboard (4 tabs)         static/app.js     dashboard logic
 static/relatorio.html printable ISP report       static/report.js  report logic
 static/i18n.js        UI strings for en / pt / zh
 static/qr.js          dependency-free QR encoder (byte mode, level M, versions 1-6) for the "open on your phone" card
@@ -91,7 +94,8 @@ static/style.css      all styles; light/dark tokens on :root
 tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Windows
 tests/test_i18n.py    translation parity (same keys and placeholders in every language)
 tests/test_static.py  every allow-listed static file exists; manifest and HTML only point to served files
-tests/test_speed.py   speed test parsing, ping/jitter, plan validation and period stats
+tests/test_speed.py   speed test parsing, ping/jitter, settings validation and period stats
+tests/test_monitor.py monitor with a fake clock: outages, alert queue, instability, public IP, daily summary
 tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
 tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
 tools/cover.html      cover template (one per language via ?lang=)
@@ -101,10 +105,12 @@ docs/<lang>/          README images per language: cover.png, demo.gif, dashboard
 
 SQLite tables (in `SCHEMA`):
 - `samples`: one row per check (`ts`, `state`, `gw_ms`, `net_ms`, `http_ok`, `rssi`), pruned after `keep_samples_days`.
-- `outages`: one row per outage (`start_ts`, `end_ts`, `cause`, `ended_by`, `network`). `end_ts` is NULL while the outage is ongoing.
+- `outages`: one row per outage (`start_ts`, `end_ts`, `cause`, `ended_by`, `network`, `hint`). `end_ts` is NULL while the outage is ongoing. `hint` was added later; `load_config` adds the column to old databases.
 - `gaps` and `sessions`: unmonitored time vs. monitored time.
 - `notifications`: outgoing queue, kept until it is sent.
 - `speedtests`: one row per speed test (`down_mbps`, `up_mbps`, `ping_ms`, `jitter_ms`, `error`, `manual`), kept forever.
+- `events`: instability (`unstable`) and public IP changes (`ip_change`), with details as JSON in `data`.
+- `meta`: small key/value state (last public IP, last daily summary).
 
 The project used to be called `netmon`. `load_config` renames an old `dados/netmon.db`, and the macOS install removes the old `com.netmon.monitor` LaunchAgent. Keep both until old installs are gone.
 

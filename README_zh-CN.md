@@ -21,9 +21,11 @@
 - 🟢 **实时状态**：在线或断网，附带计时器和可能原因。
 - 🔍 **责任归属**：运营商、你的 Wi-Fi 还是 DNS。
 - 📊 **历史记录**：每日时间线，以及 24 小时、7 天、30 天的断线次数。
+- 〰️ **不稳定**：发现没有完全断网的丢包和延迟飙升。
+- 🔁 **公网 IP 变更**：发现运营商的静默重连和路由器重启。
 - 🚀 **测速**：每天 6 次，并与你购买的套餐比较。
 - 🧾 **运营商报告**：可打印或保存为 PDF，并可导出 CSV 表格。
-- 📱 **手机通知**：网络恢复后立即收到消息。
+- 📱 **手机通知**：网络恢复后立即收到消息，每天早上还有一份摘要。
 - 📲 **像应用一样使用**：添加到手机主屏幕，或扫描面板上的二维码。
 - 🌐 **3 种语言**：English、Português 和中文。
 - 🪶 **零依赖**：只需 Python。即使外网中断，面板也能打开。
@@ -32,7 +34,7 @@
 
 <table>
   <tr>
-    <td width="34%" valign="top"><img src="docs/zh/demo.gif" alt="手机面板：运营商断线、恢复和主题切换"></td>
+    <td width="34%" valign="top"><img src="docs/zh/demo.gif" alt="手机面板：运营商断线、恢复和历史页"></td>
     <td valign="top">
       <img src="docs/zh/dashboard.png" alt="电脑上的面板"><br><br>
       <img src="docs/zh/report.png" alt="运营商报告摘要">
@@ -92,6 +94,9 @@ python3 down_again.py install   # 撤销：python3 down_again.py uninstall
 | 路由器从不响应 ping | 无法确定 |
 
 电脑关机或睡眠的时间标记为*未监控*，绝不会被算作断线。
+
+**不稳定**指网络仍然在线，但检测偶尔失败或比平时慢很多的时段（一分钟内至少 4 次异常）。
+每 10 分钟以及每次断线后都会读取**公网 IP**。本地断线后 IP 变化，说明路由器很可能重启了；没有断线却变了 IP，说明运营商在几秒内重新连接。
 </details>
 
 <details>
@@ -108,12 +113,13 @@ python3 down_again.py install   # 撤销：python3 down_again.py uninstall
 | `ntfy_topic` | 随机 | ntfy 主题。设为 `""` 可关闭通知 |
 | `ntfy_server` | `https://ntfy.sh` | 自建的 ntfy 服务器（如有） |
 | `notify_min_seconds` | `0` | 仅通知时长不低于该值的断线 |
+| `daily_summary_hour` | `9` | 手机每日摘要的发送时间（小时）。`-1` 表示关闭 |
 | `keep_samples_days` | `120` | 原始检测数据保留天数（断线记录永久保存） |
 | `speedtest_minutes` | `240` | 测速间隔（分钟，240 即每天 6 次）。`0` 表示关闭 |
 | `speedtest_seconds` | `5` | 下载和上传各测量的秒数 |
 | `plan_down_mbps` / `plan_up_mbps` | `0` | 你的套餐速度，用于比较每次测速（也可以在面板中设置） |
 
-修改后请重启 down-again。
+修改后请重启 down-again。套餐、测速频率、每日摘要和通知选项也可以在面板的**设置**页修改，无需重启。
 
 **测速会消耗流量。**每次测速使用 6 个并发连接到 Cloudflare（`speed.cloudflare.com`），下载和上传各 5 秒。在 500 Mbps 套餐下，每次约 500 MB，每天 6 次约为每月 90 GB。可以调整 `speedtest_minutes` 来增加或减少测速频率。测速期间暂停断线检测，结果仅供参考，官方测量请使用监管机构的工具。
 </details>
@@ -140,7 +146,7 @@ ntfy 主题相当于密码。
 <summary><b>API</b></summary>
 
 `GET /api/status`、`/api/glance`、`/api/summary?from=&to=`、`/api/timeseries?hours=`、`/api/outages.csv?from=&to=&lang=` 和 `/api/config`。
-`POST /api/test-notify` 需要 `X-Down-Again: 1` 请求头。
+`POST /api/test-notify`、`/api/speedtest` 和 `/api/settings` 需要 `X-Down-Again: 1` 请求头。
 </details>
 
 ---

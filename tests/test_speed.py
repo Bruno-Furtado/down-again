@@ -29,12 +29,18 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(median, 12.0)
         self.assertAlmostEqual(jitter, (2 + 1 + 19) / 3)
 
-    def test_parse_plan(self):
-        self.assertEqual(da.parse_plan(b'{"down": 600, "up": 300}'), {"down": 600.0, "up": 300.0})
-        self.assertEqual(da.parse_plan(b'{"down": "500.55"}'), {"down": 500.6, "up": 0.0})
-        for bad in (b'{"down": -1}', b'{"down": 1e9}', b'{"down": "abc"}', b"not json"):
-            with self.assertRaises(ValueError):
-                da.parse_plan(bad)
+    def test_parse_settings(self):
+        self.assertEqual(da.parse_settings(b'{"plan_down_mbps": 600, "plan_up_mbps": "300.55"}'),
+                         {"plan_down_mbps": 600.0, "plan_up_mbps": 300.6})
+        self.assertEqual(da.parse_settings(b'{"speedtest_minutes": 240, "daily_summary_hour": -1, "language": "pt"}'),
+                         {"speedtest_minutes": 240, "daily_summary_hour": -1, "language": "pt"})
+        bad = (b'{"plan_down_mbps": -1}', b'{"plan_down_mbps": 1e9}', b'{"plan_down_mbps": "abc"}', b"not json",
+               b'{"speedtest_minutes": 7}', b'{"daily_summary_hour": 24}', b'{"daily_summary_hour": 9.5}',
+               b'{"notify_min_seconds": true}', b'{"language": "xx"}', b'{"ntfy_topic": "x"}', b'{}', b'[1]',
+               b'{"plan_down_mbps": NaN}')
+        for body in bad:
+            with self.assertRaises((ValueError, TypeError), msg=body):
+                da.parse_settings(body)
 
 
 class StatsTests(unittest.TestCase):

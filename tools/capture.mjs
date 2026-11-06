@@ -173,15 +173,17 @@ for (const lang of LANGS) {
     for (let i = 0; i < 26; i++) { await js("__d.tick(7)"); await frame(); }   // sem internet (avanço rápido)
     await js("__d.up()");
     await hold(12, "__d.keep(1)");                 // voltou
-    const tl = await rect("#timeline");
-    const target = tl.y - 90, ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-    for (let i = 1; i <= 18; i++) { await js(`scrollTo(0, ${Math.round(target * ease(i / 18))})`); await frame(); }
+    // aba Histórico: números da semana, linha do tempo e lista
+    await js(`location.hash = "history"`);
+    await sleep(1500);
     await hold(12);
-    for (let i = 1; i <= 14; i++) { await js(`scrollTo(0, ${Math.round(target * (1 - ease(i / 14)))})`); await frame(); }
-    await hold(3, "__d.keep(1)");
-    await js(`document.querySelector("#theme").click()`);
-    await hold(7, "__d.keep(1)");
-    await js(`document.querySelector('#theme-menu [data-v="dark"]').click()`);
+    const tl = await rect("#timeline");
+    const target = tl.y - 70, ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    for (let i = 1; i <= 16; i++) { await js(`scrollTo(0, ${Math.round(target * ease(i / 16))})`); await frame(); }
+    await hold(14);
+    // de volta à aba Agora, já no tema escuro
+    await js(`location.hash = "now"; localStorage.setItem("nm_tema", '"dark"'); theme = "dark"; applyTheme();`);
+    await sleep(800);
     await hold(14, "__d.keep(1)");
     const enc = spawnSync("ffmpeg", ["-v", "error", "-y", "-framerate", "8", "-i", path.join(frames, "f%04d.png"), "-vf",
       "scale=360:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle",
