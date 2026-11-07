@@ -3,30 +3,45 @@ const $ = (s) => document.querySelector(s);
 const { esc, dur, cause, CAUSES, t } = NM;
 const tips = NM.initTips();
 NM.applyStatic();
-NM.mountLangMenu($("#lang"), $("#lang-menu"));
 
 const S = {
-  cfg: null, st: null, offset: 0, sum: null, series: null, failCount: 0,
-  period: NM.store.get("period", "today"), custom: NM.store.get("custom", null),
+  cfg: null, st: null, gl: null, sum: null, series: null, speed: null, offset: 0, failCount: 0,
+  tab: "now", period: NM.store.get("period", "7d"), custom: NM.store.get("custom", null),
   seriesH: NM.store.get("series", "6"), hourMetric: "count", filter: "all", sort: "recent", limit: 40,
 };
 const nowS = () => Date.now() / 1000 + S.offset;
+// Só mexe no DOM quando o texto muda: o painel fica aberto o dia todo (CPU e bateria).
+const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
+const setHTML = (el, v) => { if (el._html !== v) { el.innerHTML = v; el._html = v; } };
+const setClass = (el, v) => { if (el.className !== v) el.className = v; };
+const mbps = (v) => (v == null ? "—" : `${NM.num(v, v < 10 ? 1 : 0)} Mbps`);
+// "há X" com resolução de minutos
+const ago = (sec) => (sec < 60 ? `< 1 ${t("unit.min")}` : sec < 3600 ? `${Math.round(sec / 60)} ${t("unit.min")}` : dur(Math.round(sec / 60) * 60));
+const planNow = () => ({ down: Number((S.cfg && S.cfg.plan_down_mbps) || 0), up: Number((S.cfg && S.cfg.plan_up_mbps) || 0) });
+
+/* ---------- abas ---------- */
+const TABS = ["now", "history", "report", "settings"];
+function showTab(tab) {
+  if (!TABS.includes(tab)) tab = "now";
+  S.tab = tab;
+  TABS.forEach((x) => { $("#v-" + x).hidden = x !== tab; });
+  document.querySelectorAll("#tabs a").forEach((a) => {
+    const on = a.dataset.tab === tab;
+    a.classList.toggle("on", on);
+    a.setAttribute("aria-selected", on);
+  });
+  // o mesmo seletor de período serve ao histórico e ao relatório
+  (tab === "report" ? $("#rep-period-slot") : $("#hist-period-slot")).appendChild($("#period"));
+  if (tab === "now") { renderSeries(); loadSeries(); renderSpeedMini(); loadSpeedRecent(); }
+  if (tab === "history" || tab === "report") { renderSummary(); renderSpeedChart(); loadSummary(); }
+  if (tab === "settings") loadConfig();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
 
 /* ---------- tema ---------- */
 const DARK_FROM = 18, DARK_TO = 6;   // "pelo horário": escuro das 18h às 6h
-const ICONS = {
-  hour: `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>`,
-  system: `<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>`,
-  light: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>`,
-  dark: `<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>`,
-};
-const THEMES = [
-  ["hour", t("theme.hour"), t("theme.hourHint", { a: DARK_FROM, b: DARK_TO })],
-  ["system", t("theme.system"), t("theme.systemHint")],
-  ["light", t("theme.light"), ""],
-  ["dark", t("theme.dark"), ""],
-];
-const svg = (k) => `<svg viewBox="0 0 24 24">${ICONS[k]}</svg>`;
+const THEMES = [["hour", t("theme.hour")], ["system", t("theme.system")], ["light", t("theme.light")], ["dark", t("theme.dark")]];
 let theme = NM.store.get("tema", "hour");
 
 function applyTheme() {
@@ -34,32 +49,43 @@ function applyTheme() {
   if (th === "hour") { const h = new Date().getHours(); th = h >= DARK_FROM || h < DARK_TO ? "dark" : "light"; }
   if (th === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = th;
   const shown = th === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : th;
-  // ícone do botão = o que está na tela agora (sol/lua), ou relógio/tela quando é automático
-  $("#theme").innerHTML = svg(theme === "hour" || theme === "system" ? theme : shown);
-  $("#theme").title = t("theme.title", { t: THEMES.find((x) => x[0] === theme)[1].toLowerCase() });
-  $("#theme").setAttribute("aria-label", t("theme"));
-  document.querySelector('meta[name="theme-color"]').content = shown === "dark" ? "#080c15" : "#f2f4f9";
-  $("#theme-menu").innerHTML = THEMES.map(([k, l, h]) =>
-    `<button role="menuitemradio" aria-checked="${k === theme}" data-v="${k}" class="${k === theme ? "on" : ""}">${svg(k)}<span>${l}${h ? `<small>${h}</small>` : ""}</span><span>${k === theme ? "✓" : ""}</span></button>`).join("");
+  document.querySelector('meta[name="theme-color"]').content = shown === "dark" ? "#0b0b0e" : "#f2f3f6";
+  $("#theme-seg").innerHTML = THEMES.map(([k, l]) => `<button data-v="${k}" class="${k === theme ? "on" : ""}">${l}</button>`).join("");
+  $("#theme-hint").textContent = theme === "hour" ? t("theme.hourHint", { a: DARK_FROM, b: DARK_TO }) : theme === "system" ? t("theme.systemHint") : "";
 }
-const toggleMenu = (open) => { $("#theme-menu").classList.toggle("on", open); $("#theme").setAttribute("aria-expanded", open); };
-$("#theme").onclick = (e) => { e.stopPropagation(); $("#lang-menu").classList.remove("on"); toggleMenu(!$("#theme-menu").classList.contains("on")); };
-$("#theme-menu").onclick = (e) => {
+$("#theme-seg").onclick = (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  theme = b.dataset.v; NM.store.set("tema", theme); applyTheme(); toggleMenu(false);
+  theme = b.dataset.v; NM.store.set("tema", theme); applyTheme();
 };
-document.addEventListener("click", () => toggleMenu(false));
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") toggleMenu(false); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 applyTheme();
 setInterval(applyTheme, 60000);
+
+/* ---------- idioma do painel ---------- */
+$("#lang-seg").innerHTML = NM.LANGS.map((l) => `<button data-v="${l.code}" class="${l.code === NM.lang ? "on" : ""}">${NM.flag(l.code)}<span>${l.name}</span></button>`).join("");
+$("#lang-seg").onclick = (e) => {
+  const b = e.target.closest("button");
+  if (b && b.dataset.v !== NM.lang) { NM.store.set("lang", b.dataset.v); location.reload(); }
+};
 
 /* ---------- segmentados ---------- */
 function seg(el, value, onPick) {
   const set = (v) => el.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
   set(value);
   el.onclick = (e) => { const b = e.target.closest("button"); if (!b) return; set(b.dataset.v); onPick(b.dataset.v); };
+}
+
+/* ---------- aviso rápido (salvo, erro) ---------- */
+const toastEl = document.createElement("div");
+toastEl.id = "toast";
+document.body.appendChild(toastEl);
+let toastT;
+function toast(msg, ok = true) {
+  toastEl.textContent = msg;
+  toastEl.className = "on " + (ok ? "ok" : "bad");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => { toastEl.className = ""; }, 2200);
 }
 
 /* ---------- status ao vivo ---------- */
@@ -78,27 +104,42 @@ function heroState() {
     return { cls: "down", title: t("hero.down"), lbl: t("hero.downFor"), big: NM.clock(now - st.outage.start),
       sub: t("hero.down.sub", { time: NM.time(st.outage.start), cause: esc(cause(st.outage.cause).label) }) };
   }
-  if (st.pending) return { cls: "warn", title: t("hero.unstable"), lbl: t("hero.onlineFor"), big: NM.clock(now - st.since),
-    sub: t("hero.unstable.sub", { n: st.pending }) };
+  if (st.pending) return { cls: "warn", title: t("hero.checking"), lbl: t("hero.onlineFor"), big: NM.clock(now - st.since),
+    sub: t("hero.checking.sub", { n: st.pending }) };
+  const u = st.unstable;
+  if (u) return { cls: "warn", title: t("hero.unstable"), lbl: t("hero.unstableFor"), big: NM.clock(now - u.start),
+    sub: t("hero.unstable.sub", { loss: NM.pct(u.n ? u.loss / u.n : 0, 0), max: NM.ms(u.max_ms) }) };
   return { cls: "up", title: t("hero.online"), lbl: st.since_start ? t("hero.monitoringFor") : t("hero.noOutagesFor"), big: NM.clock(now - st.since),
     sub: esc(st.since_start ? t("hero.sinceStart", { dt: NM.dt(st.since) }) : t("hero.lastEnded", { dt: NM.dt(st.since) })) };
 }
 
-function renderHero() {
-  const h = heroState();
-  $("#status").className = "card status is-" + h.cls;
-  document.body.dataset.state = h.cls;
-  $("#st-title").textContent = h.title;
-  $("#st-lbl").textContent = h.lbl;
-  $("#st-big").textContent = h.big;
-  $("#st-sub").innerHTML = h.sub;
-  const color = { up: "#12b76a", down: "#f04438", warn: "#f79009", idle: "#98a2b3" }[h.cls];
-  document.title = (h.cls === "down" ? t("title.down", { t: h.big }) : h.title) + " · down-again";
-  if (renderHero.last !== h.cls) { favicon(color); renderHero.last = h.cls; }
+// Disponibilidade das últimas 24h com as casas decimais menores, como o saldo num app de banco.
+function availHTML(av) {
+  const n = av >= 1 ? 0 : av >= 0.9995 ? 2 : 1;
+  const m = NM.num(av * 100, n).match(/^(\d+)(\D\d+)?$/);
+  return m ? `${m[1]}<span class="dec">${m[2] || ""}%</span>` : esc(NM.pct(av, n));
 }
 
-function setNode(id, cls, text) { const n = $(id); n.className = "node " + cls; n.querySelector("small").textContent = text; }
-function setLink(id, cls) { $(id).className = "link " + cls; }
+// Topo: com a internet no ar o número grande é a disponibilidade de 24h; na queda, o tempo fora.
+function renderHero() {
+  const h = heroState();
+  if (renderHero.cls !== h.cls) {
+    $("#status").className = "hero is-" + h.cls;
+    document.body.dataset.state = h.cls;
+    favicon({ up: "#12b76a", down: "#f04438", warn: "#f79009", idle: "#98a2b3" }[h.cls]);
+    renderHero.cls = h.cls;
+  }
+  const av = S.avail24, ok = (h.cls === "up" || h.cls === "warn") && av != null;
+  setText($("#st-title"), h.title);
+  setText($("#st-lbl"), ok ? t("hero.avail24") : h.lbl);
+  setHTML($("#st-num"), ok ? availHTML(av) : esc(h.big));
+  setHTML($("#st-sub"), ok ? `${esc(h.lbl)} <b>${esc(h.big)}</b>` : h.sub);
+  const title = (h.cls === "down" ? t("title.down", { t: h.big }) : h.title) + " · down-again";
+  if (document.title !== title) document.title = title;
+}
+
+function setNode(id, cls, text) { const n = $(id); setClass(n, "node " + cls); setText(n.querySelector("small"), text); }
+function setLink(id, cls) { setClass($(id), "link " + cls); }
 
 function renderPath() {
   const st = S.st, p = st && st.probe, net = st && st.net;
@@ -114,80 +155,136 @@ function renderPath() {
   setNode("#n-net", netOk ? "ok" : gwState === "bad" ? "idle" : "bad", netOk ? NM.ms(p.net_ms) : t("path.noReply"));
   setLink("#l-3", !netOk ? "idle" : p.http_ok ? "ok" : "bad");
   setNode("#n-web", !netOk ? "idle" : p.http_ok ? "ok" : "bad", !netOk ? "—" : p.http_ok ? t("path.loading") : t("path.notLoading"));
-  $("#path-note").textContent = p.state === "ok" ? t("note.ok", { n: st.interval }) : t("note." + p.state);
+  setText($("#path-note"), p.state === "ok" ? "" : t("note." + p.state));
 }
 
 function renderNet() {
-  const net = S.st && S.st.net;
-  $("#netchip").dataset.tip = t("net.tip");
+  const net = S.st && S.st.net, chip = $("#netchip");
+  const tip = (v) => { if (chip.dataset.tip !== v) chip.dataset.tip = v; };
   if (!net || !net.kind) {
-    $("#neticon").innerHTML = NM.wifiIcon(4, "off"); $("#netname").textContent = t("net.none"); $("#netsub").textContent = ""; return;
+    tip(t("net.tip"));
+    setHTML($("#neticon"), NM.wifiIcon(4, "off")); setText($("#netname"), t("net.none")); setText($("#netsub"), ""); return;
   }
   if (net.kind === "cabo") {
-    $("#neticon").innerHTML = `<svg class="wifi" viewBox="0 0 24 24"><path class="on" d="M9 3v4M15 3v4M7 7h10v5a5 5 0 0 1-10 0zM12 17v4"/></svg>`;
-    $("#netname").textContent = t("net.cable");
-    $("#netsub").textContent = net.port || net.iface || "";
+    setHTML($("#neticon"), `<svg class="wifi" viewBox="0 0 24 24"><path class="on" d="M9 3v4M15 3v4M7 7h10v5a5 5 0 0 1-10 0zM12 17v4"/></svg>`);
+    setText($("#netname"), t("net.cable"));
+    setText($("#netsub"), net.port || net.iface || "");
     // dataset recebe HTML pronto (não passa pelo parser): escapa só os valores vindos do sistema
-    $("#netchip").dataset.tip = `<b>${t("net.cableTip")}</b><br>${esc(net.port || "")} (${esc(net.iface || "")})`;
+    tip(`<b>${t("net.cableTip")}</b><br>${esc(net.port || "")} (${esc(net.iface || "")})`);
     return;
   }
   const sig = NM.signal(net.rssi);
-  $("#neticon").innerHTML = NM.wifiIcon(net.rssi == null ? 4 : sig.bars);   // sem leitura de sinal: ícone cheio
-  $("#netname").textContent = net.ssid || "Wi-Fi";
-  $("#netsub").textContent = net.rssi != null ? `${Math.round(net.rssi)} dBm · ${sig.label}` : "";
-  $("#netchip").dataset.tip = `<b>${esc(net.ssid || "Wi-Fi")}</b><br>` +
+  setHTML($("#neticon"), NM.wifiIcon(net.rssi == null ? 4 : sig.bars));   // sem leitura de sinal: ícone cheio
+  setText($("#netname"), net.ssid || "Wi-Fi");
+  setText($("#netsub"), net.rssi != null ? `${Math.round(net.rssi)} dBm · ${sig.label}` : "");
+  tip(`<b>${esc(net.ssid || "Wi-Fi")}</b><br>` +
     [net.rssi != null && t("net.signal", { v: `${Math.round(net.rssi)} dBm (${sig.label})` }),
      net.noise != null && t("net.noise", { v: `${Math.round(net.noise)} dBm` }),
      net.channel && t("net.channel", { v: esc(net.channel) }),
-     net.tx_rate && t("net.link", { v: Math.round(net.tx_rate) })].filter(Boolean).join("<br>");
+     net.tx_rate && t("net.link", { v: Math.round(net.tx_rate) })].filter(Boolean).join("<br>"));
 }
 
 async function pollStatus() {
   try {
     const st = await NM.get("/api/status");
     S.offset = st.now - Date.now() / 1000;
-    const changed = !S.st || S.st.state !== st.state || (S.st.outage && S.st.outage.start) !== (st.outage && st.outage.start);
+    const key = (x) => x && [x.state, x.outage && x.outage.start, x.unstable && x.unstable.start, x.public_ip && x.public_ip.ip].join("|");
+    const changed = !S.st || key(S.st) !== key(st);
     const lastSpeed = (x) => (x && x.speed && x.speed.last ? x.speed.last.ts : null);
     const newSpeed = S.st && lastSpeed(st) !== lastSpeed(S.st);
     S.st = st; S.failCount = 0;
-    renderPath(); renderNet(); renderSpeedVals();
-    if (newSpeed) loadSpeed();
-    if (changed) { loadSummary(); loadSeries(); loadGlance(); }
+    renderPath(); renderNet(); renderSpeedNow();
+    if (newSpeed) { loadSpeedRecent(); if (S.tab === "history") loadSpeed(); }
+    if (changed) { loadGlance(); if (S.tab === "now") loadSeries(); else if (S.tab !== "settings") loadSummary(); }
   } catch (e) {
     if (++S.failCount >= 2) { S.st = null; renderPath(); }
   }
   renderHero();
 }
 
-/* ---------- resposta rápida: últimas 24h ---------- */
-const GL_ICONS = {
-  ok: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/></svg>`,
-  bad: `<svg viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>`,
-};
-
+/* ---------- últimas 24h e acontecimentos recentes ---------- */
 async function loadGlance() {
-  try { S.gl = await NM.get("/api/glance"); renderGlance(); } catch (e) { /* tenta no próximo ciclo */ }
+  try { S.gl = await NM.get("/api/glance"); renderGlance(); renderRecent(); } catch (e) { /* tenta no próximo ciclo */ }
 }
 
+// Faixa das últimas 24h dentro do status: verde = monitorado, cores = quedas, amarelo embaixo = instável.
 function renderGlance() {
-  const g = S.gl, now = nowS(), h = g.h24, last = g.last;   // relógio do servidor, atualizado a cada segundo
-  const young = g.since && now - g.since < 86400;            // monitor rodando há menos de 24h
-  $("#gl-title").textContent = !h.count ? t("gl.none") : h.count === 1 ? t("gl.one") : t("gl.many", { n: h.count });
-  $("#gl-sub").textContent = last && last.ongoing ? t("gl.downNow") :
-    last ? t("gl.last", { d: dur(now - last.end) }) : young ? t("gl.monitoring", { d: dur(now - g.since) }) : t("gl.never");
-  $("#glance").className = "card glance " + (h.count ? (last && last.ongoing ? "bad" : "warn") : "ok");
-  $("#gl-ic").innerHTML = GL_ICONS[h.count ? "bad" : "ok"];
-  const tile = (label, w, period) => `<${period ? `button data-p="${period}"` : "div"} class="gl-tile">
-      <span>${label}</span><b class="${w.count ? "" : "z"}">${w.count}</b></${period ? "button" : "div"}>`;
-  $("#gl-tiles").innerHTML = tile("24h", h) + tile(t("p.7d"), g.d7, "7d") + tile(t("p.30d"), g.d30, "30d");
+  const g = S.gl;
+  if (!g) return;
+  const h = g.h24, span = g.now - g.from, P = (x) => (((x - g.from) / span) * 100).toFixed(3);
+  const sum = [!h.count ? t("gl.none") : h.count === 1 ? t("gl.one") : t("gl.many", { n: h.count })];
+  if (h.count) sum.push(t("gl.offline", { d: dur(h.down_s) }));
+  setText($("#day-sum"), sum.join(" · "));
+  const monS = g.mon.reduce((a, [x, y]) => a + (y - x), 0);
+  S.avail24 = monS > 0 ? Math.max(0, Math.min(1, 1 - h.down_s / monS)) : null;
+  renderHero();
+  const seg = (cls, a, b, extra) => `<i class="${cls}" style="left:${P(a)}%;width:${P(b) - P(a)}%${extra || ""}"`;
+  const tip = (label, a, b) => esc(`<b>${esc(label)}</b> · ${dur(b - a)}<br>${NM.time(a)} → ${NM.time(b)}`);
+  setHTML($("#day-track"), g.mon.map(([a, b]) => seg("s-mon", a, b) + "></i>").join("") +
+    g.uns.map(([a, b]) => seg("s-uns", a, b) + ` data-tip="${tip(t("ev.unstableTag"), a, b)}"></i>`).join("") +
+    g.out.map(([a, b, c]) => seg("s-out", a, b, `;background:${cause(c).color}`) + ` data-tip="${tip(cause(c).label, a, b)}"></i>`).join(""));
+  setHTML($("#day-ticks"), [0, 1, 2, 3, 4].map((i) => `<span>${i === 4 ? t("gl.now") : NM.time(g.from + (span / 4) * i, false)}</span>`).join(""));
+}
+$("#day").onclick = () => { location.hash = "history"; };
+
+const TX_ICON = {
+  outage: '<path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><path d="M3 3l18 18"/>',
+  unstable: '<path d="M2 12h3l2.5-6 4 12 3-9 2 3H22"/>',
+  ip_change: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+};
+
+// Um acontecimento como uma linha de extrato de banco: ícone, nome, horário e o "valor" (duração) à direita.
+// No Histórico o detalhe (sinal, causa provável, perda) vai no balão; withDate põe o dia quando a lista não é por dia.
+function txRow(x, { tip = false, withDate = false } = {}) {
+  const end = x.ongoing ? t("list.now") : NM.time(x.end, false);
+  const at = (ts) => (withDate ? NM.dt(ts).replace(/:\d\d$/, "") : NM.time(ts, false));
+  let color, title, sub, amount, notes = [];
+  if (x.kind === "outage") {
+    const c = cause(x.cause), sig = NM.signal(x.rssi);
+    color = c.color; title = t("ev.outageTag"); amount = dur(x.dur);
+    sub = `${c.label} · ${at(x.start)} → ${end}`;
+    notes = [x.hint && t("hint." + x.hint), x.ended_by && x.ended_by !== "voltou" && NM.endedBy(x.ended_by),
+      x.network && x.network + (x.rssi != null ? ` · ${Math.round(x.rssi)} dBm (${sig.label})` : "")];
+  } else if (x.kind === "unstable") {
+    const d = x.data || {};
+    color = "var(--unst)"; title = t("ev.unstableTag"); amount = dur(x.dur);
+    sub = `${at(x.start)} → ${end}`;
+    notes = [d.n && t("ev.unstableDetail", { loss: NM.pct(d.loss / d.n, 0), max: NM.ms(d.max_ms) })];
+  } else {
+    const d = x.data || {};
+    color = "var(--accent)"; title = t("ev.ipTag"); amount = NM.time(x.end, false);
+    sub = withDate ? `${NM.dayLabel(x.end)} · ${d.new || "?"}` : d.new || "?";
+    notes = [`${d.old || "?"} → ${d.new || "?"}`, d.silent ? t("ev.ipSilent") : d.late ? t("ev.ipLate") : d.hint ? t("hint." + d.hint) : ""];
+  }
+  notes = notes.filter(Boolean).map(esc).join("<br>");
+  const tipAttr = tip && notes ? ` data-tip="${esc(notes)}"` : "";
+  return `<div class="tx-row" data-start="${x.kind === "ip_change" ? x.end : x.start}" style="--c:${color}"${tipAttr}><span class="tx-ic"><svg viewBox="0 0 24 24">${TX_ICON[x.kind] || TX_ICON.ip_change}</svg></span>
+    <div class="tx-main"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
+    <div class="tx-amt"><b>${esc(amount)}</b>${x.ongoing ? `<span class="live">${t("list.live")}</span>` : ""}</div></div>`;
 }
 
-$("#gl-tiles").onclick = (e) => {
-  const b = e.target.closest("[data-p]");
-  if (!b) return;
-  document.querySelector(`#period-seg [data-v="${b.dataset.p}"]`).click();
-  $("#period-seg").closest("section").scrollIntoView({ behavior: "smooth", block: "start" });
-};
+// Linhas agrupadas por dia ("Hoje", "Ontem", "qua., 04/11"), como num extrato.
+function txList(items, opts) {
+  let html = "", last = null;
+  for (const x of items) {
+    const day = dayName(x.kind === "ip_change" ? x.end : x.start);
+    if (day !== last) { html += `<div class="tx-day">${esc(day)}</div>`; last = day; }
+    html += txRow(x, opts);
+  }
+  return html;
+}
+
+function dayName(ts) {
+  const d = new Date(ts * 1000), today = new Date(nowS() * 1000);
+  const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  return diff === 0 ? t("day.today") : diff === 1 ? t("day.yesterday") : NM.dayLabel(ts);
+}
+
+function renderRecent() {
+  const items = ((S.gl && S.gl.recent) || []).slice(0, 5);
+  if (!items.length) { setHTML($("#recent"), `<div class="empty">${t("recent.none")}</div>`); return; }
+  setHTML($("#recent"), txList(items));
+}
 
 /* ---------- gráfico de latência ---------- */
 async function loadSeries() {
@@ -200,9 +297,18 @@ function niceMax(v) {
   return 10 * p;
 }
 
+function axes(W, H, L, R, T, B, yMax, Y, n = 4) {
+  let g = "";
+  for (let i = 0; i <= n; i++) {
+    const v = (yMax / n) * i, y = Y(v);
+    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 3.5}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  return g;
+}
+
 function renderSeries() {
   const box = $("#chart"), d = S.series;
-  if (!d) return;
+  if (!d || S.tab !== "now") return;
   const W = box.clientWidth, H = box.clientHeight, L = 38, R = 6, T = 8, B = 22;
   if (W < 120) return void setTimeout(renderSeries, 300);   // ainda sem layout: tenta de novo
   const pts = d.points, span = d.now - d.from;
@@ -212,11 +318,7 @@ function renderSeries() {
   const yMax = niceMax(Math.max(20, cap * 1.1));
   const Y = (v) => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
   const bw = Math.max(1.5, (d.step / span) * (W - L - R));
-  let g = "";
-  for (let i = 0; i <= 4; i++) {
-    const v = (yMax / 4) * i, y = Y(v);
-    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 3.5}" text-anchor="end">${Math.round(v)}</text>`;
-  }
+  let g = axes(W, H, L, R, T, B, yMax, Y);
   const nT = W < 500 ? 3 : 6;
   for (let i = 0; i <= nT; i++) {
     const x = d.from + (span / nT) * i;
@@ -234,26 +336,10 @@ function renderSeries() {
     });
     return s;
   };
-  const area = (() => {
-    // área sob a média, quebrando nos buracos
-    let out = "", run = [];
-    const flush = () => {
-      if (run.length > 1) out += `M${X(run[0].t + d.step / 2)} ${Y(0)}` + run.map((p) => `L${X(p.t + d.step / 2)} ${Y(p.avg)}`).join("") + `L${X(run[run.length - 1].t + d.step / 2)} ${Y(0)}Z`;
-      run = [];
-    };
-    pts.forEach((p) => {
-      if (p.avg == null || (run.length && p.t - run[run.length - 1].t > d.step * 1.6)) flush();
-      if (p.avg != null) run.push(p);
-    });
-    flush();
-    return out;
-  })();
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">
-    <defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
-    ${g}${fails}<path d="${area}" fill="url(#ga)"/><path class="l-gw" d="${line("gw")}"/><path class="l-avg" d="${line("avg")}"/>
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}${fails}<path class="l-gw" d="${line("gw")}"/><path class="l-avg" d="${line("avg")}"/>
     <line class="xh" id="xh" y1="${T}" y2="${H - B}"/><circle class="dot" id="xd" r="4.5"/>
     <rect id="ov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
-  if (!pts.length) box.insertAdjacentHTML("beforeend", `<div class="empty" style="position:absolute;inset:0;display:grid;place-items:center"><span>${t("chart.empty")}</span></div>`);
+  if (!pts.length) box.insertAdjacentHTML("beforeend", `<div class="empty chart-empty"><span>${t("chart.empty")}</span></div>`);
   const ov = box.querySelector("#ov"), xh = box.querySelector("#xh"), xd = box.querySelector("#xd");
   const move = (cx, cy) => {
     if (!pts.length) return;
@@ -278,32 +364,16 @@ function renderSeries() {
   ov.addEventListener("mouseleave", () => { box.classList.remove("hover"); tips.hide(); });
 }
 
-/* ---------- velocidade ---------- */
-const mbps = (v) => (v == null ? "—" : `${NM.num(v, v < 10 ? 1 : 0)} Mbps`);
-// "há X" com resolução de minutos: o cartão só é refeito quando o texto muda (poupa CPU)
-const mins = (sec) => (sec < 60 ? `< 1 ${t("unit.min")}` : sec < 3600 ? `${Math.round(sec / 60)} ${t("unit.min")}` : dur(Math.round(sec / 60) * 60));
-const planNow = () => ({ down: Number((S.cfg && S.cfg.plan_down_mbps) || 0), up: Number((S.cfg && S.cfg.plan_up_mbps) || 0) });
-
-async function loadSpeed() {
-  const r = currentRange();
-  try { S.speed = await NM.get(`/api/speedtests?from=${r.from}&to=${r.to}`); renderSpeedChart(); renderSpeedDesc(); } catch (e) { /* tenta no próximo ciclo */ }
-}
-
-function renderSpeedDesc() {
-  const d = S.speed, plan = planNow();
-  if (!d || !d.count) { $("#speed-desc").innerHTML = "&nbsp;"; return; }
-  $("#speed-desc").textContent = t("speed.avg", { down: mbps(d.down && d.down.avg), up: mbps(d.up && d.up.avg) }) +
-    (plan.down && d.below40 ? " · " + t("speed.below", { n: d.below40 }) : "");
-}
-
+/* ---------- velocidade agora ---------- */
 function speedRow(label, value, plan, color) {
   const pct = plan && value != null ? value / plan : null;
-  return `<div class="sp-row"><span class="sp-lbl">${label}</span><b>${value == null ? "—" : NM.num(value, value < 10 ? 1 : 0)}</b><small>Mbps</small>` +
-    (pct != null ? `<span class="sp-pct${pct < 0.4 ? " low" : ""}">${t("speed.ofPlan", { p: NM.pct(pct, 0) })}</span>` : "") + `</div>` +
-    `<div class="sp-bar"><i style="width:${pct != null ? Math.min(100, pct * 100) : value != null ? 100 : 0}%;--c:${color}"></i></div>`;
+  return `<div class="sp-tile" style="--c:${color}"><span class="sp-lbl">${label}</span>` +
+    `<div class="sp-val"><b>${value == null ? "—" : NM.num(value, value < 10 ? 1 : 0)}</b><small>Mbps</small></div>` +
+    `<div class="sp-bar"><i style="width:${pct != null ? Math.min(100, pct * 100) : value != null ? 100 : 0}%"></i></div>` +
+    (pct != null ? `<span class="sp-pct${pct < 0.4 ? " low" : ""}">${t("speed.ofPlan", { p: NM.pct(pct, 0) })}</span>` : "") + `</div>`;
 }
 
-function renderSpeedVals() {
+function renderSpeedNow() {
   const sp = S.st && S.st.speed, plan = planNow(), now = nowS();
   let html = "";
   if (sp) {
@@ -311,49 +381,199 @@ function renderSpeedVals() {
     if (!l) html = `<p class="sp-meta">${t(sp.enabled ? "speed.none" : "speed.off")}</p>`;
     else if (l.error) html = `<p class="sp-meta">${esc(t("speed.failedLast", { e: l.error }))}</p>`;
     else {
-      html = speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)") +
-        `<p class="sp-meta">${t("speed.ping", { p: NM.ms(l.ping), j: NM.ms(l.jitter) })}</p>`;
+      html = `<div class="sp-tiles">${speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)")}</div>`;
     }
-    const when = sp.running ? t("speed.running") : [l && t("speed.last", { d: mins(now - l.ts) }),
-      sp.enabled ? sp.next && t("speed.next", { d: mins(Math.max(0, sp.next - now)) }) : t("speed.off")].filter(Boolean).join(" · ");
-    html += `<p class="sp-meta">${esc(when)}</p>`;
+    if (!plan.down && S.cfg) html += `<p class="sp-meta"><a href="#settings">${t("speed.setPlan")}</a></p>`;
+    setText($("#speed-when"), sp.running ? t("speed.running") : l ? t("speed.ago", { d: ago(now - l.ts) }) : "");
   }
-  if (html !== renderSpeedVals.html) { $("#speed-vals").innerHTML = html; renderSpeedVals.html = html; }
-  const busy = !!(sp && sp.running);
-  $("#speed-run").classList.toggle("busy", busy);
-  $("#speed-run").disabled = busy;
+  setHTML($("#speed-vals"), html);
+  const busy = !!(sp && sp.running), btn = $("#act-speed");
+  if (btn.disabled !== busy) { btn.classList.toggle("busy", busy); btn.disabled = busy; }
+}
+
+$("#act-speed").onclick = async () => {
+  const res = $("#speed-res");
+  res.className = "res"; res.textContent = "";
+  try {
+    const r = await (await fetch("/api/speedtest", { method: "POST", headers: { "X-Down-Again": "1" } })).json();
+    if (r.ok) {
+      if (S.st && S.st.speed) S.st.speed.running = true;
+      renderSpeedNow();
+    } else {
+      res.className = "res bad";
+      res.textContent = { cooldown: t("speed.cooldown", { n: r.wait }), offline: t("speed.offline"), running: t("speed.busy") }[r.code] || r.code || "?";
+    }
+  } catch (e) { res.className = "res bad"; res.textContent = t("noContact"); }
+};
+
+/* ---------- histórico ---------- */
+function currentRange() {
+  if (S.period === "custom" && S.custom) return S.custom;
+  return NM.rangeFor(S.period === "custom" ? "7d" : S.period);
+}
+
+function pickPeriod(v) {
+  S.period = v; NM.store.set("period", v);
+  $("#period-seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  $("#custom").classList.toggle("on", v === "custom");
+  if (v === "custom") {
+    const r = S.custom || NM.rangeFor("7d");
+    $("#d-from").value = r.from; $("#d-to").value = r.to;
+  }
+  S.limit = 40;
+  if (S.tab === "history" || S.tab === "report") loadSummary();
+}
+
+async function loadSummary() {
+  const r = currentRange();
+  const qs = `from=${r.from}&to=${r.to}`;
+  $("#lnk-report").href = "/relatorio?" + qs;
+  $("#lnk-csv").href = `/api/outages.csv?${qs}&lang=${NM.lang}`;
+  try {
+    const [sum, speed] = await Promise.all([NM.get("/api/summary?" + qs), NM.get(`/api/speedtests?${qs}`)]);
+    S.sum = sum; S.speed = speed;
+    renderSummary(); renderSpeedChart();
+  } catch (e) { /* mantém o último */ }
+}
+const loadSpeed = loadSummary;
+
+// Caixa de número: só o rótulo e o número grande; o detalhe fica no balão (passar o mouse ou tocar).
+function kpi(color, title, value, sub, tip) {
+  const more = [sub, tip].filter((x) => x && x !== "&nbsp;").join("<br>");
+  return `<div class="card kpi" style="--c:${color}" ${more ? `data-tip="${esc(more)}"` : ""}><h3><i></i>${title.charAt(0).toUpperCase() + title.slice(1)}</h3><b>${value}</b></div>`;
+}
+// "511 Mbps" → número grande e a unidade pequena, como na aba Agora
+const unitHTML = (s) => s.replace(/^([\d.,]+)\s*(\D.*)$/, '$1<span class="u">$2</span>');
+
+function renderSummary() {
+  const s = S.sum;
+  if (!s) return;
+  const desc = s.days.length === 1 ? t("sum.oneDay", { day: NM.dayLabel(s.from), mon: dur(s.mon_s) }) :
+    t("sum.range", { from: NM.date(s.from), to: NM.date(s.to - 1), mon: dur(s.mon_s) }) + (s.unmon_s > 60 ? t("sum.unmon", { d: dur(s.unmon_s) }) : "");
+  setText($("#period-desc"), desc);
+  renderReport();
+  if (S.tab !== "history") return;
+
+  const isp = s.causes.isp || { count: 0, down_s: 0 }, av = s.avail, sp = S.speed, plan = planNow();
+  const avColor = av == null ? "var(--unknown)" : av >= 0.995 ? "var(--ok)" : av >= 0.98 ? "var(--warn)" : "var(--down)";
+  const spAvg = sp && sp.down ? sp.down.avg : null;
+  setHTML($("#kpis"), [
+    kpi(avColor, t("gauge.label"), av != null ? availHTML(av) : "—", av == null ? t("gauge.noData") : t("gauge.sub", { down: dur(s.down_s), mon: dur(s.mon_s) })),
+    kpi("var(--down)", t("kpi.outages"), String(s.count), s.count ? t("kpi.outagesSub", { isp: isp.count, n: s.short }) : t("kpi.none"), t("kpi.ispTip")),
+    kpi("var(--accent-2)", t("kpi.longest"), s.longest ? dur(s.longest.dur) : "—", s.longest ? esc(NM.dt(s.longest.start)) : "&nbsp;"),
+    kpi("var(--unst)", t("kpi.unstable"), String(s.unstable.count), s.unstable.count ? t("kpi.unstableSub", { d: dur(s.unstable.dur_s) }) : t("kpi.none"), t("kpi.unstableTip")),
+    kpi("var(--accent)", t("kpi.speed"), spAvg != null ? unitHTML(mbps(spAvg)) : "—", spAvg != null && plan.down ? t("speed.ofPlan", { p: NM.pct(spAvg / plan.down, 0) }) : sp && sp.count ? t("kpi.speedTests", { n: sp.count }) : t("speed.empty")),
+  ].join(""));
+
+  setHTML($("#timeline"), NM.timelineHTML(s));
+  renderHours();
+  renderCauses();
+  renderList();
+  renderSpeedDesc();
+}
+
+function renderHours() {
+  const s = S.sum;
+  setHTML($("#hours"), s.count ? NM.hoursHTML(s.hours, S.hourMetric) : `<div class="empty">${t("hours.none")}</div>`);
+}
+
+function renderCauses() {
+  const s = S.sum, total = s.down_s || 1;
+  const keys = Object.keys(CAUSES).filter((k) => s.causes[k]);
+  if (!keys.length) { setHTML($("#causes"), `<div class="empty">${t("causes.none")}</div>`); return; }
+  setHTML($("#causes"), `<div class="stack">${keys.map((k) => `<i style="width:${(s.causes[k].down_s / total) * 100}%;background:${CAUSES[k].color}" data-tip="${esc(`<b>${CAUSES[k].label}</b><br>${t("causes.share", { p: NM.pct(s.causes[k].down_s / total, 0) })}`)}"></i>`).join("")}</div>
+    <div class="clist">${keys.map((k) => `<div class="crow"><i style="background:${CAUSES[k].color}"></i>
+      <div><b>${CAUSES[k].label}</b><small>${CAUSES[k].desc}</small></div>
+      <div class="num"><b>${s.causes[k].count}×</b><small>${dur(s.causes[k].down_s)}</small></div></div>`).join("")}</div>`);
+}
+
+function allEvents() {
+  const s = S.sum;
+  return s.outages.map((o) => Object.assign({ kind: "outage" }, o))
+    .concat(s.events.filter((x) => !(x.kind === "ip_change" && x.data && x.data.outage)));
+}
+
+function renderList() {
+  const items = allEvents();
+  const counts = { all: items.length, outage: 0, unstable: 0, ip_change: 0 };
+  items.forEach((x) => { counts[x.kind]++; });
+  const kinds = [["all", t("list.all"), "var(--text)"], ["outage", t("list.outages"), "var(--down)"],
+    ["unstable", t("list.unstable"), "var(--unst)"], ["ip_change", t("list.ip"), "var(--accent)"]];
+  setHTML($("#chips"), kinds.filter(([k]) => k === "all" || counts[k])
+    .map(([k, l, c]) => `<button data-v="${k}" class="${S.filter === k ? "on" : ""}" style="--c:${c}"><i></i>${l} ${counts[k]}</button>`).join(""));
+  let list = items.filter((x) => S.filter === "all" || x.kind === S.filter);
+  const key = (x) => (x.kind === "ip_change" ? x.end : x.start);
+  list = list.slice().sort(S.sort === "long" ? (a, b) => (b.dur || 0) - (a.dur || 0) : (a, b) => key(b) - key(a));
+  setText($("#list-desc"), items.length ? t("list.desc", { n: S.sum.outages.length, u: counts.unstable }) : t("list.descNone"));
+  if (!list.length) { setHTML($("#olist"), `<div class="empty">${t("list.empty")}</div>`); return; }
+  const page = list.slice(0, S.limit);
+  // mais recentes: agrupado por dia; mais longas: lista corrida com o dia em cada linha
+  setHTML($("#olist"), (S.sort === "long" ? page.map((x) => txRow(x, { tip: true, withDate: true })).join("") : txList(page, { tip: true })) +
+    (list.length > S.limit ? `<button class="btn more" id="more">${t("list.more", { n: Math.min(40, list.length - S.limit), r: list.length - S.limit })}</button>` : ""));
+  const more = $("#more");
+  if (more) more.onclick = () => { S.limit += 40; renderList(); };
+}
+
+$("#chips").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.filter = b.dataset.v; S.limit = 40; renderList(); };
+$("#sort").onchange = (e) => { S.sort = e.target.value; renderList(); };
+$("#timeline").onclick = (e) => {
+  const el = e.target.closest(".s-out,.s-uns");
+  if (!el) return;
+  S.filter = "all"; S.sort = "recent"; $("#sort").value = "recent";
+  const idx = allEvents().sort((a, b) => b.start - a.start).findIndex((x) => String(x.start) === el.dataset.start);
+  if (idx >= S.limit) S.limit = idx + 10;
+  renderList();
+  const r = document.querySelector(`#olist .tx-row[data-start="${el.dataset.start}"]`);
+  if (r) { r.scrollIntoView({ behavior: "smooth", block: "center" }); r.classList.add("flash"); setTimeout(() => r.classList.remove("flash"), 1800); }
+};
+
+/* ---------- velocidade no período ---------- */
+function renderSpeedDesc() {
+  const d = S.speed, plan = planNow();
+  if (!d || !d.count) { setText($("#speed-desc"), t("speed.empty")); return; }
+  setText($("#speed-desc"), t("speed.avg", { down: mbps(d.down && d.down.avg), up: mbps(d.up && d.up.avg) }) +
+    (plan.down && d.below40 ? " · " + t("speed.below", { n: d.below40 }) : ""));
 }
 
 function renderSpeedChart() {
-  const box = $("#speed-chart"), d = S.speed;
+  if (S.tab === "history") drawSpeed($("#speed-chart"), S.speed, false, renderSpeedChart);
+}
+
+// Velocidade dos últimos 7 dias, no cartão da aba Agora.
+async function loadSpeedRecent() {
+  const r = NM.rangeFor("7d");
+  try { S.speedRecent = await NM.get(`/api/speedtests?from=${r.from}&to=${r.to}`); renderSpeedMini(); } catch (e) { /* tenta depois */ }
+}
+function renderSpeedMini() {
+  if (S.tab === "now") drawSpeed($("#speed-mini"), S.speedRecent, true, renderSpeedMini);
+}
+
+function drawSpeed(box, d, compact, retry) {
   if (!d) return;
   const tests = d.tests.filter((x) => !x.error && x.down);
-  if (!tests.length) { box.innerHTML = `<div class="empty" style="height:100%;display:grid;place-items:center">${t("speed.empty")}</div>`; return; }
-  const W = box.clientWidth, H = box.clientHeight, L = 46, R = 8, T = 10, B = 22;
-  if (W < 120) return void setTimeout(renderSpeedChart, 300);
+  if (!tests.length) { setHTML(box, `<div class="empty chart-empty">${t("speed.empty")}</div>`); return; }
+  const W = box.clientWidth, H = box.clientHeight, L = compact ? 34 : 46, R = compact ? 4 : 8, T = compact ? 6 : 10, B = compact ? 18 : 22;
+  if (W < 120) return void setTimeout(retry, 300);
   const plan = planNow(), t0 = tests[0].ts, t1 = tests[tests.length - 1].ts, span = Math.max(1, t1 - t0);
   const X = (x) => (tests.length === 1 ? (L + W - R) / 2 : L + ((x - t0) / span) * (W - L - R));
   const yMax = niceMax(Math.max(10, plan.down, ...tests.map((x) => Math.max(x.down || 0, x.up || 0))) * 1.08);
   const Y = (v) => T + (1 - Math.min(v, yMax) / yMax) * (H - T - B);
-  let g = "";
-  for (let i = 0; i <= 4; i++) {
-    const v = (yMax / 4) * i, y = Y(v);
-    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="ax" x="${L - 6}" y="${y + 3.5}" text-anchor="end">${Math.round(v)}</text>`;
-  }
-  const nT = Math.min(W < 500 ? 3 : 5, tests.length - 1);
+  let g = axes(W, H, L, R, T, B, yMax, Y, compact ? 2 : 4);
+  const nT = Math.min(W < 420 ? 2 : compact || W < 500 ? 3 : 5, tests.length - 1);
   for (let i = 0; i <= nT && tests.length > 1; i++) {
     const x = t0 + (span / nT) * i;
-    g += `<text class="ax" x="${X(x)}" y="${H - 5}" text-anchor="${i === 0 ? "start" : i === nT ? "end" : "middle"}">${esc(span > 86400 ? NM.dayLabel(x) : NM.time(x, false))}</text>`;
+    g += `<text class="ax" x="${X(x)}" y="${H - 4}" text-anchor="${i === 0 ? "start" : i === nT ? "end" : "middle"}">${esc(span > 86400 ? NM.dayLabel(x) : NM.time(x, false))}</text>`;
   }
   if (plan.down) {
     g += `<line class="sp-plan-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down)}" y2="${Y(plan.down)}"/>`;
-    g += `<line class="sp-40-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down * 0.4)}" y2="${Y(plan.down * 0.4)}"/>`;
+    if (!compact) g += `<line class="sp-40-line" x1="${L}" x2="${W - R}" y1="${Y(plan.down * 0.4)}" y2="${Y(plan.down * 0.4)}"/>`;
   }
   const line = (key) => tests.filter((x) => x[key] != null).map((x, i) => `${i ? "L" : "M"}${X(x.ts).toFixed(1)} ${Y(x[key]).toFixed(1)}`).join("");
-  const dots = (key, cls) => tests.filter((x) => x[key] != null).map((x) => `<circle class="${cls}" cx="${X(x.ts).toFixed(1)}" cy="${Y(x[key]).toFixed(1)}" r="2.6"/>`).join("");
+  const dots = (key, cls) => compact ? "" : tests.filter((x) => x[key] != null).map((x) => `<circle class="${cls}" cx="${X(x.ts).toFixed(1)}" cy="${Y(x[key]).toFixed(1)}" r="2.6"/>`).join("");
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}<path class="l-up" d="${line("up")}"/><path class="l-avg" d="${line("down")}"/>${dots("up", "d-up")}${dots("down", "d-down")}
-    <line class="xh" id="sxh" y1="${T}" y2="${H - B}"/><rect id="sov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
-  const ov = box.querySelector("#sov"), xh = box.querySelector("#sxh");
+    <line class="xh" y1="${T}" y2="${H - B}"/><rect class="ov" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
+  box._html = null;
+  const ov = box.querySelector(".ov"), xh = box.querySelector(".xh");
   const move = (cx, cy) => {
     const at = t0 + ((cx - box.getBoundingClientRect().left - L) / (W - L - R)) * span;
     let best = tests[0];
@@ -368,169 +588,84 @@ function renderSpeedChart() {
   ov.addEventListener("mouseleave", () => { box.classList.remove("hover"); tips.hide(); });
 }
 
-$("#speed-run").onclick = async () => {
-  const res = $("#speed-res");
-  res.className = "res"; res.textContent = "";
+/* ---------- relatório ---------- */
+function renderReport() {
+  const s = S.sum, sp = S.speed, plan = planNow();
+  if (!s) return;
+  // número grande (disponibilidade), uma linha de resumo e só os fatos que não cabem nela
+  setText($("#rep-period"), t("r.periodRange", { a: NM.date(s.from), b: NM.date(s.to - 1) }));
+  setHTML($("#rep-num"), s.avail != null ? availHTML(s.avail) : "—");
+  setText($("#rep-sub"), [!s.count ? t("gl.none") : s.count === 1 ? t("gl.one") : t("gl.many", { n: s.count }),
+    s.count ? t("gl.offline", { d: dur(s.down_s) }) : ""].filter(Boolean).join(" · "));
+  const spAvg = sp && sp.down ? sp.down.avg : null;
+  const facts = [
+    [t("r.longest"), s.longest ? t("r.longestVal", { d: dur(s.longest.dur), dt: NM.date(s.longest.start) }) : "—"],
+    [t("r.unstable"), s.unstable.count ? `${s.unstable.count} (${dur(s.unstable.dur_s)})` : "0"],
+    [t("r.speedDown"), spAvg == null ? "—" : plan.down ? t("r.speedPct", { v: mbps(spAvg), p: NM.pct(spAvg / plan.down, 0) }) : mbps(spAvg)],
+    [t("r.ipChanges"), String(s.ip_changes)],
+    [t("r.monitored"), dur(s.mon_s) + (s.unmon_s > 60 ? " · " + t("rep.unmon", { d: dur(s.unmon_s) }) : "")],
+  ];
+  setHTML($("#rep-facts"), facts.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join(""));
+}
+
+/* ---------- ajustes ---------- */
+async function saveSetting(changes) {
   try {
-    const r = await (await fetch("/api/speedtest", { method: "POST", headers: { "X-Down-Again": "1" } })).json();
-    if (r.ok) {
-      if (S.st && S.st.speed) S.st.speed.running = true;
-      renderSpeedVals();
-    } else {
-      res.className = "res bad";
-      res.textContent = { cooldown: t("speed.cooldown", { n: r.wait }), offline: t("speed.offline"), running: t("speed.busy") }[r.code] || r.code || "?";
-    }
-  } catch (e) { res.className = "res bad"; res.textContent = t("noContact"); }
-};
+    const r = await (await fetch("/api/settings", { method: "POST", headers: { "X-Down-Again": "1", "Content-Type": "application/json" }, body: JSON.stringify(changes) })).json();
+    if (!r.ok) throw new Error(r.code);
+    Object.assign(S.cfg, r.settings);
+    toast(t("speed.saved"));
+    renderSettings(); renderSpeedNow(); renderSpeedMini();
+    return true;
+  } catch (err) { toast(t("ntfy.failed", { e: err.message }), false); return false; }
+}
+
+const opt = (v, label, cur) => `<option value="${v}"${String(v) === String(cur) ? " selected" : ""}>${esc(label)}</option>`;
+
+function renderSettings() {
+  const c = S.cfg;
+  if (!c) return;
+  if (document.activeElement && document.activeElement.matches("#v-settings select")) return;   // não fecha a lista aberta
+  const hours = [-1, 6, 7, 8, 9, 10, 12, 18, 20, 22];
+  if (!hours.includes(c.daily_summary_hour)) hours.push(c.daily_summary_hour);
+  $("#set-daily").innerHTML = hours.sort((a, b) => a - b).map((h) => opt(h, h < 0 ? t("set.off") : t("set.at", { h: NM.pad(h) + ":00" }), c.daily_summary_hour)).join("");
+  const mins = [0, 30, 60, 300, 900];
+  if (!mins.includes(c.notify_min_seconds)) mins.push(c.notify_min_seconds);
+  $("#set-min").innerHTML = mins.sort((a, b) => a - b).map((s) => opt(s, s ? t("set.longer", { d: dur(s) }) : t("set.all"), c.notify_min_seconds)).join("");
+  $("#set-lang").innerHTML = opt("auto", t("set.auto"), c.language_setting) + NM.LANGS.map((l) => opt(l.code, l.name, c.language_setting)).join("");
+  $("#set-speed").innerHTML = c.speed_choices.map((m) => opt(m, !m ? t("set.off") : m === 1440 ? t("set.daily1") :
+    t("set.every", { d: m % 60 ? `${m} ${t("unit.min")}` : `${m / 60} ${t("unit.h")}`, n: Math.round(1440 / m) }), c.speedtest_minutes)).join("");
+  // franquia: cada teste baixa e envia durante speedtest_seconds na velocidade do plano (ou do último teste)
+  const last = S.st && S.st.speed && S.st.speed.last, plan = planNow();
+  const down = plan.down || (last && last.down) || 0, up = plan.up || (last && last.up) || 0;
+  const gb = c.speedtest_minutes && down ? ((down + up) * c.speedtest_seconds / 8) * (1440 / c.speedtest_minutes) * 30 / 1000 : null;
+  $("#speed-usage").textContent = !c.speedtest_minutes ? t("set.usageOff") : gb != null ? t("set.usage", { gb: NM.num(gb, gb < 10 ? 1 : 0), s: c.speedtest_seconds }) : "";
+  if (document.activeElement !== $("#plan-down")) $("#plan-down").value = plan.down || "";
+  if (document.activeElement !== $("#plan-up")) $("#plan-up").value = plan.up || "";
+
+  $("#topic").textContent = c.ntfy_topic || t("ntfy.disabled");
+  $("#ntfy-step2").innerHTML = t("ntfy.step2", { server: esc(c.ntfy_server.replace(/^https?:\/\//, "")) });
+  const n = c.notify, now = nowS();
+  $("#ntfy-state").innerHTML = !n ? "" : [n.last_sent ? t("ntfy.lastSent", { d: ago(now - n.last_sent) }) : t("ntfy.never"),
+    n.pending ? t("ntfy.pending", { n: n.pending }) : "", n.error ? `<span class="bad">${esc(t("ntfy.lastError", { e: n.error }))}</span>` : ""].filter(Boolean).join(" · ");
+
+  const addr = c.host ? `${c.host}:${c.port}` : "", ip = S.st && S.st.public_ip;
+  $("#about").innerHTML = [[t("about.address"), addr ? `http://${addr}` : location.origin], [t("about.localIp"), c.ip || "—"],
+    [t("about.publicIp"), ip ? ip.ip : "—"], [t("about.system"), c.platform], [t("about.checks"), t("about.every", { n: c.interval })]]
+    .map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join("");
+}
+
+document.querySelectorAll("#v-settings select[data-k]").forEach((sel) => {
+  sel.onchange = () => saveSetting({ [sel.dataset.k]: sel.dataset.k === "language" ? sel.value : Number(sel.value) });
+});
 
 $("#sp-form").onsubmit = async (e) => {
   e.preventDefault();
-  const res = $("#plan-res");
-  try {
-    const body = JSON.stringify({ down: Number($("#plan-down").value || 0), up: Number($("#plan-up").value || 0) });
-    const r = await (await fetch("/api/plan", { method: "POST", headers: { "X-Down-Again": "1", "Content-Type": "application/json" }, body })).json();
-    if (!r.ok) throw new Error(r.code);
-    S.cfg.plan_down_mbps = r.plan.down; S.cfg.plan_up_mbps = r.plan.up;
-    res.className = "res ok"; res.textContent = t("speed.saved");
-    renderPlanForm(); renderSpeedVals.html = null; renderSpeedVals(); renderSpeedChart(); renderSpeedDesc();
-  } catch (err) { res.className = "res bad"; res.textContent = t("ntfy.failed", { e: err.message }); }
+  const ok = await saveSetting({ plan_down_mbps: Number($("#plan-down").value || 0), plan_up_mbps: Number($("#plan-up").value || 0) });
+  $("#plan-res").className = "res " + (ok ? "ok" : "bad");
+  $("#plan-res").textContent = ok ? t("speed.saved") : "";
 };
 
-function renderPlanForm() {
-  const plan = planNow();
-  if (document.activeElement !== $("#plan-down")) $("#plan-down").value = plan.down || "";
-  if (document.activeElement !== $("#plan-up")) $("#plan-up").value = plan.up || "";
-  $("#sp-plan-sum").textContent = t("speed.plan") + (plan.down ? `: ${NM.num(plan.down)} / ${NM.num(plan.up)} Mbps` : "");
-  if (!plan.down) $("#sp-plan").open = true;      // sem plano: já mostra o formulário
-}
-
-/* ---------- resumo do período ---------- */
-function currentRange() {
-  if (S.period === "custom" && S.custom) return S.custom;
-  return NM.rangeFor(S.period === "custom" ? "7d" : S.period);
-}
-
-async function loadSummary() {
-  const r = currentRange();
-  const qs = `from=${r.from}&to=${r.to}`;
-  $("#lnk-report").href = "/relatorio?" + qs;
-  $("#lnk-csv").href = `/api/outages.csv?${qs}&lang=${NM.lang}`;
-  loadSpeed();
-  try { S.sum = await NM.get("/api/summary?" + qs); renderSummary(); } catch (e) { /* mantém o último */ }
-}
-
-function kpi(color, title, value, sub, tip) {
-  return `<div class="card kpi" style="--c:${color}" ${tip ? `data-tip="${esc(tip)}"` : ""}><h3><i></i>${title}</h3><b>${value}</b><small>${sub}</small></div>`;
-}
-
-function renderSummary() {
-  const s = S.sum;
-  $("#period-desc").textContent = s.days.length === 1 ? t("sum.oneDay", { day: NM.dayLabel(s.from), mon: dur(s.mon_s) }) :
-    t("sum.range", { from: NM.date(s.from), to: NM.date(s.to - 1), mon: dur(s.mon_s) }) + (s.unmon_s > 60 ? t("sum.unmon", { d: dur(s.unmon_s) }) : "");
-
-  // medidor
-  const av = s.avail, C = 2 * Math.PI * 72;
-  const col = av == null ? "var(--unknown)" : av >= 0.995 ? "var(--ok)" : av >= 0.98 ? "var(--warn)" : "var(--down)";
-  const fg = $("#g-fg");
-  fg.style.stroke = col;
-  fg.setAttribute("stroke-dasharray", `${(av || 0) * C} ${C}`);
-  $("#g-val").textContent = NM.pct(av, av != null && av < 0.9995 ? 2 : 1);
-  $("#g-sub").textContent = av == null ? t("gauge.noData") : t("gauge.sub", { down: dur(s.down_s), mon: dur(s.mon_s) });
-
-  const isp = s.causes.isp || { count: 0, down_s: 0 };
-  $("#kgrid").innerHTML = [
-    kpi("var(--down)", t("kpi.outages"), s.count, s.count ? t("kpi.short", { n: s.short }) : t("kpi.none")),
-    kpi("var(--warn)", t("kpi.offline"), dur(s.down_s), s.count ? t("kpi.avg", { d: dur(s.avg) }) : "&nbsp;"),
-    kpi("var(--accent-2)", t("kpi.longest"), s.longest ? dur(s.longest.dur) : "—", s.longest ? esc(NM.dt(s.longest.start)) : "&nbsp;"),
-    kpi("var(--isp)", t("kpi.isp"), isp.count === 1 ? t("kpi.ispOne") : t("kpi.ispMany", { n: isp.count }), t("kpi.ispTotal", { d: dur(isp.down_s) }), t("kpi.ispTip")),
-  ].join("");
-
-  $("#timeline").innerHTML = NM.timelineHTML(s);
-  renderHours();
-  renderCauses();
-  renderList();
-}
-
-function renderHours() {
-  const s = S.sum;
-  $("#hours").innerHTML = s.count ? NM.hoursHTML(s.hours, S.hourMetric) : `<div class="empty">${t("hours.none")}</div>`;
-}
-
-function renderCauses() {
-  const s = S.sum, total = s.down_s || 1;
-  const keys = Object.keys(CAUSES).filter((k) => s.causes[k]);
-  if (!keys.length) { $("#causes").innerHTML = `<div class="empty">${t("causes.none")}</div>`; return; }
-  $("#causes").innerHTML = `<div class="stack">${keys.map((k) => `<i style="width:${(s.causes[k].down_s / total) * 100}%;background:${CAUSES[k].color}" data-tip="${esc(`<b>${CAUSES[k].label}</b><br>${t("causes.share", { p: NM.pct(s.causes[k].down_s / total, 0) })}`)}"></i>`).join("")}</div>
-    <div class="clist">${keys.map((k) => `<div class="crow"><i style="background:${CAUSES[k].color}"></i>
-      <div><b>${CAUSES[k].label}</b><small>${CAUSES[k].desc}</small></div>
-      <div class="num"><b>${s.causes[k].count}×</b><small>${dur(s.causes[k].down_s)}</small></div></div>`).join("")}</div>`;
-}
-
-function renderList() {
-  const s = S.sum;
-  const counts = { all: s.outages.length };
-  s.outages.forEach((o) => { counts[o.cause] = (counts[o.cause] || 0) + 1; });
-  $("#chips").innerHTML = [["all", t("list.all"), "var(--accent)"]].concat(Object.keys(CAUSES).filter((k) => counts[k]).map((k) => [k, CAUSES[k].label, CAUSES[k].color]))
-    .map(([k, l, c]) => `<button data-v="${k}" class="${S.filter === k ? "on" : ""}" style="--c:${c}"><i></i>${l} ${counts[k] || 0}</button>`).join("");
-  let list = s.outages.filter((o) => S.filter === "all" || o.cause === S.filter);
-  list = list.slice().sort(S.sort === "long" ? (a, b) => b.dur - a.dur : (a, b) => b.start - a.start);
-  const maxDur = Math.max(1, ...list.map((o) => o.dur));
-  $("#list-desc").textContent = s.outages.length ? t("list.desc", { n: s.outages.length }) : t("list.descNone");
-  if (!list.length) { $("#olist").innerHTML = `<div class="empty">${t("list.empty")}</div>`; return; }
-  $("#olist").innerHTML = list.slice(0, S.limit).map((o) => {
-    const c = cause(o.cause), sig = NM.signal(o.rssi);
-    const ended = o.ended_by && o.ended_by !== "voltou" ? " · " + esc(NM.endedBy(o.ended_by)) : "";
-    return `<div class="orow" data-start="${o.start}" style="--c:${c.color}"><i style="background:${c.color}"></i>
-      <div><b>${esc(NM.dt(o.start))}</b>${o.ongoing ? `<span class="live">${t("list.live")}</span>` : ""}<small>${t("list.until", { t: o.ongoing ? t("list.now") : NM.time(o.end) })}${ended}</small></div>
-      <div class="o-dur"><b>${dur(o.dur)}</b><u style="width:${(o.dur / maxDur) * 100}%"></u></div>
-      <div class="o-cause"><b>${c.label}</b><small>${esc(o.network || "")}${o.rssi != null ? ` · ${Math.round(o.rssi)} dBm (${sig.label})` : ""}</small></div></div>`;
-  }).join("") + (list.length > S.limit ? `<button class="btn more" id="more">${t("list.more", { n: Math.min(40, list.length - S.limit), r: list.length - S.limit })}</button>` : "");
-  const more = $("#more");
-  if (more) more.onclick = () => { S.limit += 40; renderList(); };
-}
-
-$("#chips").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.filter = b.dataset.v; S.limit = 40; renderList(); };
-$("#sort").onchange = (e) => { S.sort = e.target.value; renderList(); };
-$("#timeline").onclick = (e) => {
-  const el = e.target.closest(".s-out");
-  if (!el) return;
-  S.filter = "all"; S.sort = "recent"; $("#sort").value = "recent";
-  const idx = S.sum.outages.slice().sort((a, b) => b.start - a.start).findIndex((o) => String(o.start) === el.dataset.start);
-  if (idx >= S.limit) S.limit = idx + 10;
-  renderList();
-  const row = document.querySelector(`.orow[data-start="${el.dataset.start}"]`);
-  if (row) { row.scrollIntoView({ behavior: "smooth", block: "center" }); row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1800); }
-};
-
-/* ---------- controles ---------- */
-seg($("#series-seg"), S.seriesH, (v) => { S.seriesH = v; NM.store.set("series", v); loadSeries(); });
-seg($("#hour-seg"), S.hourMetric, (v) => { S.hourMetric = v; renderHours(); });
-seg($("#period-seg"), S.period, (v) => {
-  S.period = v; NM.store.set("period", v);
-  $("#custom").classList.toggle("on", v === "custom");
-  if (v === "custom") {
-    const r = S.custom || NM.rangeFor("7d");
-    $("#d-from").value = r.from; $("#d-to").value = r.to;
-  }
-  S.limit = 40; loadSummary();
-});
-$("#custom").classList.toggle("on", S.period === "custom");
-if (S.period === "custom" && S.custom) { $("#d-from").value = S.custom.from; $("#d-to").value = S.custom.to; }
-$("#d-apply").onclick = () => {
-  if (!$("#d-from").value || !$("#d-to").value) return;
-  S.custom = { from: $("#d-from").value, to: $("#d-to").value }; NM.store.set("custom", S.custom); loadSummary();
-};
-
-/* ---------- atualizar agora ---------- */
-$("#refresh").onclick = async () => {
-  const b = $("#refresh");
-  if (b.classList.contains("spin")) return;
-  b.classList.add("spin");
-  await Promise.all([pollStatus(), loadGlance(), loadSummary(), loadSeries(), new Promise((r) => setTimeout(r, 600))]);
-  b.classList.remove("spin");
-};
-
-/* ---------- avisos ---------- */
 $("#copy").onclick = async () => {
   const topic = $("#topic").textContent;
   try { await navigator.clipboard.writeText(topic); $("#copy").textContent = t("ntfy.copied"); }
@@ -552,14 +687,13 @@ $("#test").onclick = async () => {
 async function loadConfig() {
   try {
     S.cfg = await NM.get("/api/config");
-    $("#topic").textContent = S.cfg.ntfy_topic || t("ntfy.disabled");
-    $("#ntfy-step2").innerHTML = t("ntfy.step2", { server: esc(S.cfg.ntfy_server.replace(/^https?:\/\//, "")) });
-    const addr = S.cfg.host ? `http://${S.cfg.host}:${S.cfg.port}` : "";
+    renderSettings();
     renderPhone();
-    renderPlanForm();
-    // o plano chega com a configuração: redesenha o que compara com ele
-    renderSpeedVals.html = null; renderSpeedVals(); renderSpeedChart(); renderSpeedDesc();
-    $("#foot").innerHTML = esc(t("foot", { n: S.cfg.interval })) + (addr ? ` · <a href="${esc(addr)}">${esc(addr)}</a>` : "") + (S.cfg.ip ? ` · ${esc(S.cfg.ip)}` : "");
+    renderSpeedNow();
+    if (S.tab === "history") { renderSpeedChart(); renderSummary(); }
+    renderSpeedMini();
+    const addr = S.cfg.host ? `http://${S.cfg.host}:${S.cfg.port}` : "";
+    $("#foot").innerHTML = esc(t("foot", { n: S.cfg.interval })) + (addr ? ` · <a href="${esc(addr)}">${esc(addr)}</a>` : "");
   } catch (e) { setTimeout(loadConfig, 5000); }
 }
 
@@ -603,27 +737,55 @@ function renderPhone() {
   const url = cfg.host ? `http://${cfg.host}:${port}` : cfg.ip ? `http://${cfg.ip}:${port}` : location.origin;
   const alt = cfg.host && cfg.ip ? `${cfg.ip}:${port}` : url.replace(/^https?:\/\//, "");
   const code = QR.svg(url);
-  box.innerHTML = (code ? `<div class="qr">${code}</div>` : "") + `<p>${t("phone.desc")}</p>` +
-    `<p class="muted">${t("phone.or", { url: `<code>${esc(alt)}</code>` })}</p>`;
+  setHTML(box, (code ? `<div class="qr">${code}</div>` : "") + `<p>${t("phone.desc")}</p>` +
+    `<p class="muted">${t("phone.or", { url: `<code>${esc(alt)}</code>` })}</p>`);
 }
 
 $("#install-x").onclick = () => { NM.store.set("installHidden", true); renderInstall(); };
 $("#install-btn").onclick = promptInstall;
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; renderInstall(); renderPhone(); });
 window.addEventListener("appinstalled", () => { NM.store.set("installHidden", true); renderInstall(); });
-renderInstall();
-renderPhone();
+
+/* ---------- controles ---------- */
+seg($("#series-seg"), S.seriesH, (v) => { S.seriesH = v; NM.store.set("series", v); loadSeries(); });
+seg($("#hour-seg"), S.hourMetric, (v) => { S.hourMetric = v; renderHours(); });
+seg($("#period-seg"), S.period, pickPeriod);
+$("#custom").classList.toggle("on", S.period === "custom");
+if (S.period === "custom" && S.custom) { $("#d-from").value = S.custom.from; $("#d-to").value = S.custom.to; }
+$("#d-apply").onclick = () => {
+  if (!$("#d-from").value || !$("#d-to").value) return;
+  S.custom = { from: $("#d-from").value, to: $("#d-to").value }; NM.store.set("custom", S.custom); loadSummary();
+};
+
+$("#refresh").onclick = async () => {
+  const b = $("#refresh");
+  if (b.classList.contains("spin")) return;
+  b.classList.add("spin");
+  const work = [pollStatus(), loadGlance(), new Promise((r) => setTimeout(r, 600))];
+  if (S.tab === "now") work.push(loadSeries());
+  if (S.tab === "history" || S.tab === "report") work.push(loadSummary());
+  if (S.tab === "settings") work.push(loadConfig());
+  await Promise.all(work);
+  b.classList.remove("spin");
+};
 
 let rT;
-window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { renderSeries(); renderSpeedChart(); }, 120); });
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { renderSeries(); renderSpeedChart(); renderSpeedMini(); }, 120); });
 
+/* ---------- início e atualizações ---------- */
+// Aba escondida (outra aba do navegador, tela apagada): não busca nem redesenha nada.
+const live = (fn) => () => { if (!document.hidden) fn(); };
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { pollStatus(); loadGlance(); } });
+
+renderInstall();
+renderPhone();
+showTab(location.hash.slice(1));
 loadConfig();
 pollStatus();
 loadGlance();
-loadSummary();
-loadSeries();
-setInterval(pollStatus, 3000);
-setInterval(loadGlance, 30000);
-setInterval(() => { renderHero(); if (S.gl) renderGlance(); }, 1000);
-setInterval(loadSummary, 60000);
-setInterval(loadSeries, 30000);
+setInterval(live(pollStatus), 3000);
+setInterval(live(loadGlance), 30000);
+setInterval(live(renderHero), 1000);
+setInterval(live(() => { if (S.tab === "history" || S.tab === "report") loadSummary(); }), 60000);
+setInterval(live(() => { if (S.tab === "now") loadSeries(); }), 30000);
+setInterval(live(() => { if (S.tab === "settings") loadConfig(); }), 30000);

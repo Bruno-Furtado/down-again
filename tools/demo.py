@@ -44,6 +44,13 @@ def simulate(app, seed=7):
     flap = end - DAY - 3 * 3600
     events += [(flap + i * 160, flap + i * 160 + 70, "isp") for i in range(5)]
     asleep = (end - 4 * DAY + 2 * 3600, end - 4 * DAY + 5.5 * 3600)
+    # instabilidade: latência alta e falhas soltas (sem duas seguidas, para não virar queda)
+    shaky, t = [], clock[0] + 5000
+    while t < end - 2 * 3600:
+        t += rnd.expovariate(1 / (9 * 3600))
+        shaky.append((t, t + rnd.uniform(4, 25) * 60))
+    shaky.append((end - 2.2 * 3600, end - 2.2 * 3600 + 11 * 60))
+    last_lost = [False]
 
     def state_at(ts):
         return next((c for a, b, c in events if a <= ts < b), "ok")
@@ -51,6 +58,11 @@ def simulate(app, seed=7):
     def fake_probe(timeout):
         s = state_at(clock[0])
         lat = rnd.gauss(22, 5) + (rnd.random() < 0.03) * rnd.uniform(80, 400)
+        if s == "ok" and any(a <= clock[0] < b for a, b in shaky):
+            lost = not last_lost[0] and rnd.random() < 0.3
+            last_lost[0] = lost
+            lat = rnd.uniform(180, 520)
+            return {"gw": "192.168.0.1", "gw_ms": max(1, rnd.gauss(3, 1)), "net_ms": None if lost else lat, "http_ok": not lost}
         return {"gw": None if s == "local" and rnd.random() < .5 else "192.168.0.1",
                 "gw_ms": None if s == "local" else max(1, rnd.gauss(3, 1)),
                 "net_ms": None if s in ("isp", "local") else max(5, lat), "http_ok": s == "ok"}
@@ -64,12 +76,21 @@ def simulate(app, seed=7):
     try:
         cfg = dict(app.load_config(), interval=STEP)
         notifier = app.Notifier(cfg)
-        notifier.queue = lambda *a: None
+        notifier.queue = lambda *a, **k: None
         monitor = app.Monitor(cfg, notifier)
         monitor.gap_limit = STEP + 30
+        # IP público (faixa de documentação): muda depois de quedas locais (roteador reiniciou) e às vezes sozinho
+        pub, ip, next_ip, n_local = app.PublicIP(monitor), [203, 0, 113, 24], clock[0], 0
         while clock[0] < end - 30:
             if not asleep[0] <= clock[0] < asleep[1]:
                 monitor.step()
+                if clock[0] >= next_ip and not monitor.outage:
+                    locals_now = monitor.db.execute("SELECT COUNT(*) FROM outages WHERE cause='local'").fetchone()[0]
+                    if (locals_now > n_local and rnd.random() < 0.7) or rnd.random() < 0.004:
+                        ip[3] = rnd.randint(2, 250)
+                    n_local = locals_now
+                    pub.check(monitor.db, ".".join(map(str, ip)), clock[0])
+                    next_ip = clock[0] + pub.PERIOD
             clock[0] += STEP + rnd.uniform(-1, 1)
         monitor.stop()
         return monitor.db.execute("SELECT COUNT(*) FROM outages").fetchone()[0]
@@ -124,8 +145,9 @@ def main():
     # servidor real, com Wi-Fi e nome fictícios e avisos desligados
     app.network_info = lambda: dict(DEMO_WIFI)
     app.local_addresses = lambda: ("balboa.local", "192.168.0.56")
-    app.Notifier.send = lambda self, *a: (False, "desligado na demonstração")
+    app.Notifier.send = lambda self, *a: (True, "")     # finge que entregou: nada sai para a internet
     app.run_speedtest = fake_speedtest
+    app.fetch_public_ip = lambda timeout=8: None        # mantém o IP fictício da simulação
     cfg = app.load_config()
     cfg.update(port=args.port, ntfy_topic="down-again-demo", plan_down_mbps=600, plan_up_mbps=300)
     app.cmd_run(cfg)

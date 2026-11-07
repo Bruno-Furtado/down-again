@@ -45,6 +45,8 @@ function render(s, cfg) {
     [t("r.avgMedian"), s.count ? `${dur(s.avg)} / ${dur(s.median)}` : "—"],
     [t("r.longest"), s.longest ? t("r.longestVal", { d: dur(s.longest.dur), dt: NM.dtFull(s.longest.start) }) : "—"],
     [t("r.ispCount"), `${isp.count} (${dur(isp.down_s)})`],
+    [t("r.unstable"), s.unstable.count ? `${s.unstable.count} (${dur(s.unstable.dur_s)})` : "0"],
+    [t("r.ipChanges"), String(s.ip_changes)],
     [t("r.mtbf"), s.mtbf ? dur(s.mtbf) : "—"],
     [t("r.latency"), lat ? `${NM.ms(lat.p50)} / ${NM.ms(lat.p95)}` : "—"],
     [t("r.checks"), `${NM.num(s.samples)} / ${NM.pct(s.fail_pct, 2)}`],
@@ -55,9 +57,11 @@ function render(s, cfg) {
   }
   $("#summary").innerHTML = html;
 
+  const u = cfg.unstable || {};
   const vars = { interval: cfg.interval, timeout: cfg.timeout, threshold: cfg.fail_threshold,
-    targets: cfg.tcp_targets.map(esc).join(", "), url: esc(cfg.http_url) };
-  $("#meth").innerHTML = ["r.m1", "r.m2", "r.m3", "r.m4", "r.m5"].map((k) => `<li>${t(k, vars)}</li>`).join("");
+    targets: cfg.tcp_targets.map(esc).join(", "), url: esc(cfg.http_url),
+    open: u.open, window: u.window, limit: NM.ms(u.min_slow_ms) };
+  $("#meth").innerHTML = ["r.m1", "r.m2", "r.m3", "r.m4", "r.m5", "r.m7", "r.m8"].map((k) => `<li>${t(k, vars)}</li>`).join("");
 
   $("#timeline").innerHTML = NM.timelineHTML(s, { newestFirst: false });
 
@@ -71,8 +75,21 @@ function render(s, cfg) {
   $("#list").innerHTML = s.outages.length ? `<table><tr><th>#</th><th>${t("r.th.start")}</th><th>${t("r.th.end")}</th><th class="n">${t("r.th.dur")}</th>
     <th>${t("r.th.cause")}</th><th>${t("r.th.network")}</th></tr>
     ${s.outages.map((o, i) => `<tr><td>${i + 1}</td><td>${NM.dtFull(o.start)}</td><td>${o.ongoing ? t("r.ongoing") : NM.dtFull(o.end)}</td>
-      <td class="n">${dur(o.dur)}</td><td><span class="dot" style="background:${cause(o.cause).color}"></span>${cause(o.cause).label}${o.ended_by && o.ended_by !== "voltou" ? ` <span class="muted2">(${esc(NM.endedBy(o.ended_by))})</span>` : ""}</td>
+      <td class="n">${dur(o.dur)}</td><td><span class="dot" style="background:${cause(o.cause).color}"></span>${cause(o.cause).label}${o.ended_by && o.ended_by !== "voltou" ? ` <span class="muted2">(${esc(NM.endedBy(o.ended_by))})</span>` : ""}${o.hint ? `<br><span class="muted2">${esc(t("hint." + o.hint))}</span>` : ""}</td>
       <td>${esc(o.network || "")}</td></tr>`).join("")}</table>` : `<p class="muted2">${t("r.noOutages")}</p>`;
+
+  const unst = s.events.filter((x) => x.kind === "unstable");
+  $("#unst").innerHTML = unst.length ? `<table><tr><th>#</th><th>${t("r.th.start")}</th><th>${t("r.th.end")}</th><th class="n">${t("r.th.dur")}</th>
+    <th class="n">${t("r.th.loss")}</th><th class="n">${t("r.th.maxLat")}</th></tr>
+    ${unst.map((x, i) => `<tr><td>${i + 1}</td><td>${NM.dtFull(x.start)}</td><td>${x.ongoing ? t("r.ongoing") : NM.dtFull(x.end)}</td>
+      <td class="n">${dur(x.dur)}</td><td class="n">${x.data.n ? `${x.data.loss}/${x.data.n} (${NM.pct(x.data.loss / x.data.n, 0)})` : "—"}</td>
+      <td class="n">${NM.ms(x.data.max_ms)}</td></tr>`).join("")}</table>` : `<p class="muted2">${t("r.unstNone")}</p>`;
+
+  const ips = s.events.filter((x) => x.kind === "ip_change");
+  $("#iplist").innerHTML = ips.length ? `<table><tr><th>${t("r.th.when")}</th><th>${t("r.th.change")}</th><th>${t("r.th.note")}</th></tr>
+    ${ips.map((x) => `<tr><td>${NM.dtFull(x.end)}</td><td>${esc(x.data.old)} → ${esc(x.data.new)}</td>
+      <td>${esc(x.data.silent ? t("ev.ipSilent") : x.data.late ? t("ev.ipLate") : x.data.hint ? t("hint." + x.data.hint) : "")}</td></tr>`).join("")}</table>`
+    : `<p class="muted2">${t("r.ipNone")}</p>`;
 
   $("#unmon").innerHTML = s.unmonitored.length ? `<table><tr><th>${t("r.th.from")}</th><th>${t("r.th.to")}</th><th class="n">${t("r.th.dur")}</th></tr>
     ${s.unmonitored.map(([a, b]) => `<tr><td>${NM.dtFull(a)}</td><td>${NM.dtFull(b)}</td><td class="n">${dur(b - a)}</td></tr>`).join("")}</table>`

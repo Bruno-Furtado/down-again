@@ -8,8 +8,8 @@
 <link rel="apple-touch-icon" href="/icon-180.png">
 <link rel="stylesheet" href="/style.css">
 <style>
-  body { background: #e9ecf3; }
-  .bar { position: sticky; top: 0; z-index: 5; background: rgba(233, 236, 243, .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  body { background: #f2f3f6; }
+  .bar { position: sticky; top: 0; z-index: 5; background: rgba(242, 243, 246, .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
   .bar .in { max-width: 860px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .bar .in > a:first-child { margin-right: auto; font-weight: 600; }
   .page { max-width: 860px; margin: 22px auto 60px; background: #fff; color: #111827; padding: 48px 56px; border-radius: 6px; box-shadow: 0 20px 50px -25px rgba(0, 0, 0, .35); font-size: 13.5px; line-height: 1.5; }
@@ -96,6 +96,7 @@
     <span><i class="sq" style="--c:var(--local)"></i><span data-i18n="r.leg.local"></span></span>
     <span><i class="sq" style="--c:var(--dns)"></i><span data-i18n="r.leg.dns"></span></span>
     <span><i class="sq" style="--c:var(--unknown)"></i><span data-i18n="leg.unknown"></span></span>
+    <span><i class="ln" style="--c:var(--unst)"></i><span data-i18n="leg.unstable"></span></span>
     <span><i class="sq" style="--c:var(--unmon)"></i><span data-i18n="leg.unmon"></span></span>
   </div>
   <div id="timeline"></div>
@@ -108,6 +109,12 @@
 
   <h2 data-i18n="r.list"></h2>
   <div id="list"></div>
+
+  <h2 data-i18n="r.unstList"></h2>
+  <div id="unst"></div>
+
+  <h2 data-i18n="r.ipList"></h2>
+  <div id="iplist"></div>
 
   <h2 data-i18n="r.unmon"></h2>
   <div id="unmon"></div>
