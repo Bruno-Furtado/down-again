@@ -48,7 +48,7 @@ These are not style preferences. Breaking any of them breaks real installs.
 - **Python 3.8 compatible.** The target is the Command Line Tools Python on macOS 11. Don't use `match`, `str.removeprefix`, `dict | dict`, `list[int]`-style generics, `zoneinfo`, or `functools.cache`. Check with:
   `python3 -c "import ast; ast.parse(open('down_again.py').read(), feature_version=(3, 8))"` (repeat for `tools/demo.py`).
 - **Standard library only.** No pip packages, no `requirements.txt`, no build step.
-- **The frontend must work with the internet down.** Vanilla JS and CSS only: no frameworks, no CDNs, no external fonts or images. The one font (Plus Jakarta Sans, OFL) lives in `static/fonts/` and is served by the monitor itself.
+- **The frontend must work with the internet down.** Vanilla JS and CSS only: no frameworks, no CDNs, no external fonts or images. The one font (Geist, OFL) lives in `static/fonts/app.woff2` and is served by the monitor itself.
 - **CSP is strict** (`script-src 'self'`). No inline `<script>` blocks and no inline event handlers (`onclick=`). Put JS in `static/*.js`. Inline `style` attributes are allowed.
 - **Static files are allow-listed.** A new file in `static/` must be added to `STATIC_FILES` in `down_again.py`, or it returns 404.
 - **Never commit `dados/`.** It holds `config.json` (with the ntfy topic, which works like a password), the database and the log.

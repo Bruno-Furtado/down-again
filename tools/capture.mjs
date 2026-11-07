@@ -74,13 +74,13 @@ const IDENT = {
   zh: { titular: "示例用户", provedor: "示例运营商", endereco: "示例路 123 号", plano: "500 Mbps 光纤", cliente: "000123456", protocolos: "2026110100123, 2026110200456" },
 };
 
-// Ícones do app (tela de início do celular e favicon): gradiente roxo com o pulso branco.
+// Ícones do app (tela de início do celular e favicon): grafite com brilho verde no canto e o pulso verde.
 function iconSVG(size, rounded, scale) {
   const s = (size * scale) / 24, off = (size - 24 * s) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
-    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6cf0"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>` +
+    `<defs><radialGradient id="g" cx="0" cy="0" r="1.2"><stop offset="0" stop-color="#24503f"/><stop offset=".7" stop-color="#17181d"/></radialGradient></defs>` +
     `<rect width="${size}" height="${size}" rx="${rounded ? size * 0.225 : 0}" fill="url(#g)"/>` +
-    `<path transform="translate(${off} ${off}) scale(${s})" d="M3 12h4l2.5-6 5 12 2.5-6h4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    `<path transform="translate(${off} ${off}) scale(${s})" d="M3 12h4l2.5-6 5 12 2.5-6h4" fill="none" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 if (MODE === "icons") {
   const STATIC = path.join(TOOLS, "..", "static");

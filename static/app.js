@@ -133,7 +133,7 @@ function renderHero() {
   setText($("#st-title"), h.title);
   setText($("#st-lbl"), ok ? t("hero.avail24") : h.lbl);
   setHTML($("#st-num"), ok ? availHTML(av) : esc(h.big));
-  setHTML($("#st-sub"), ok ? `${esc(h.lbl)} <b>${esc(h.big)}</b>` + (h.cls === "warn" ? `<br>${h.sub}` : "") : h.sub);
+  setHTML($("#st-sub"), ok ? `${esc(h.lbl)} <b>${esc(h.big)}</b>` : h.sub);
   const title = (h.cls === "down" ? t("title.down", { t: h.big }) : h.title) + " · down-again";
   if (document.title !== title) document.title = title;
 }
@@ -155,9 +155,7 @@ function renderPath() {
   setNode("#n-net", netOk ? "ok" : gwState === "bad" ? "idle" : "bad", netOk ? NM.ms(p.net_ms) : t("path.noReply"));
   setLink("#l-3", !netOk ? "idle" : p.http_ok ? "ok" : "bad");
   setNode("#n-web", !netOk ? "idle" : p.http_ok ? "ok" : "bad", !netOk ? "—" : p.http_ok ? t("path.loading") : t("path.notLoading"));
-  setText($("#path-note"), p.state === "ok" ? t("note.ok", { n: st.interval }) : t("note." + p.state));
-  const ip = st.public_ip;
-  setText($("#path-ip"), ip ? t("path.publicIp", { ip: ip.ip, d: ago(nowS() - ip.since) }) : "");
+  setText($("#path-note"), p.state === "ok" ? "" : t("note." + p.state));
 }
 
 function renderNet() {
@@ -216,7 +214,6 @@ function renderGlance() {
   const h = g.h24, span = g.now - g.from, P = (x) => (((x - g.from) / span) * 100).toFixed(3);
   const sum = [!h.count ? t("gl.none") : h.count === 1 ? t("gl.one") : t("gl.many", { n: h.count })];
   if (h.count) sum.push(t("gl.offline", { d: dur(h.down_s) }));
-  if (h.unstable) sum.push(h.unstable === 1 ? t("gl.unstableOne") : t("gl.unstableMany", { n: h.unstable }));
   setText($("#day-sum"), sum.join(" · "));
   const monS = g.mon.reduce((a, [x, y]) => a + (y - x), 0);
   S.avail24 = monS > 0 ? Math.max(0, Math.min(1, 1 - h.down_s / monS)) : null;
@@ -269,15 +266,15 @@ function txRow(x) {
   if (x.kind === "outage") {
     const c = cause(x.cause);
     color = c.color; title = t("ev.outageTag"); amount = dur(x.dur);
-    sub = `${c.label} · ${NM.time(x.start, false)} → ${end}` + (x.hint ? ` · ${t("hint." + x.hint)}` : "");
+    sub = `${c.label} · ${NM.time(x.start, false)} → ${end}`;
   } else if (x.kind === "unstable") {
     const d = x.data || {};
     color = "var(--unst)"; title = t("ev.unstableTag"); amount = dur(x.dur);
-    sub = `${NM.time(x.start, false)} → ${end}` + (d.n ? ` · ${t("ev.unstableDetail", { loss: NM.pct(d.loss / d.n, 0), max: NM.ms(d.max_ms) })}` : "");
+    sub = `${NM.time(x.start, false)} → ${end}`;
   } else {
     const d = x.data || {};
-    color = "var(--accent)"; title = t("ev.ip"); amount = NM.time(x.end, false);
-    sub = `${d.old || "?"} → ${d.new || "?"}`;
+    color = "var(--accent)"; title = t("ev.ipTag"); amount = NM.time(x.end, false);
+    sub = d.new || "?";
   }
   return `<div class="tx-row" style="--c:${color}"><span class="tx-ic"><svg viewBox="0 0 24 24">${TX_ICON[x.kind] || TX_ICON.ip_change}</svg></span>
     <div class="tx-main"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
@@ -291,7 +288,7 @@ function dayName(ts) {
 }
 
 function renderRecent() {
-  const items = ((S.gl && S.gl.recent) || []).slice(0, 7);
+  const items = ((S.gl && S.gl.recent) || []).slice(0, 5);
   if (!items.length) { setHTML($("#recent"), `<div class="empty">${t("recent.none")}</div>`); return; }
   let html = "", last = null;
   for (const x of items) {
@@ -397,19 +394,17 @@ function renderSpeedNow() {
     if (!l) html = `<p class="sp-meta">${t(sp.enabled ? "speed.none" : "speed.off")}</p>`;
     else if (l.error) html = `<p class="sp-meta">${esc(t("speed.failedLast", { e: l.error }))}</p>`;
     else {
-      html = `<div class="sp-tiles">${speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)")}</div>` +
-        `<p class="sp-meta">${t("speed.ping", { p: NM.ms(l.ping), j: NM.ms(l.jitter) })}</p>`;
+      html = `<div class="sp-tiles">${speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)")}</div>`;
     }
     if (!plan.down && S.cfg) html += `<p class="sp-meta"><a href="#settings">${t("speed.setPlan")}</a></p>`;
-    setText($("#speed-when"), sp.running ? t("speed.running") : [l && t("speed.last", { d: ago(now - l.ts) }),
-      sp.enabled ? sp.next && t("speed.next", { d: ago(Math.max(0, sp.next - now)) }) : t("speed.off")].filter(Boolean).join(" · "));
+    setText($("#speed-when"), sp.running ? t("speed.running") : l ? t("speed.ago", { d: ago(now - l.ts) }) : "");
   }
   setHTML($("#speed-vals"), html);
-  const busy = !!(sp && sp.running), btn = $("#speed-run");
-  if (btn.disabled !== busy) { btn.classList.toggle("busy", busy); btn.disabled = busy; $("#act-speed").classList.toggle("busy", busy); $("#act-speed").disabled = busy; }
+  const busy = !!(sp && sp.running), btn = $("#act-speed");
+  if (btn.disabled !== busy) { btn.classList.toggle("busy", busy); btn.disabled = busy; }
 }
 
-$("#speed-run").onclick = async () => {
+$("#act-speed").onclick = async () => {
   const res = $("#speed-res");
   res.className = "res"; res.textContent = "";
   try {
@@ -423,8 +418,6 @@ $("#speed-run").onclick = async () => {
     }
   } catch (e) { res.className = "res bad"; res.textContent = t("noContact"); }
 };
-
-$("#act-speed").onclick = () => { $("#speed-run").click(); $(".speed-now").scrollIntoView({ behavior: "smooth", block: "center" }); };
 
 /* ---------- histórico ---------- */
 function currentRange() {

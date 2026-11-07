@@ -28,15 +28,15 @@
   color-scheme: dark;
 }
 
-/* Plus Jakarta Sans (variável, só o alfabeto latino: cobre português e inglês; chinês cai na fonte do sistema) */
-@font-face { font-family: "Plus Jakarta Sans"; src: url(/fonts/plus-jakarta-sans.woff2) format("woff2"); font-weight: 200 800; font-display: swap; }
+/* Fonte do painel: Geist (variável, só o alfabeto latino: cobre português e inglês; chinês cai na fonte do sistema) */
+@font-face { font-family: "App Sans"; src: url(/fonts/app.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.45 "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 15px/1.45 "App Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
@@ -55,9 +55,10 @@ small { font-size: 12.5px; }
 /* topo e abas */
 .top { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-bottom: 20px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
-.logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  display: grid; place-items: center; }
-.logo svg { width: 18px; height: 18px; }
+/* logo: grafite com o pulso verde (as mesmas cores do topo e da situação "online") */
+.logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+  background: radial-gradient(120% 120% at 0% 0%, #24503f, #17181d 70%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.logo svg { width: 18px; height: 18px; stroke: #34d399; }
 .tabs { justify-self: center; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .tabs a { display: flex; align-items: center; gap: 7px; padding: 7px 15px; border-radius: 999px; color: var(--muted); font-size: 14px; font-weight: 600; }
 .tabs a svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -68,7 +69,7 @@ small { font-size: 12.5px; }
 .chip { display: inline-flex; align-items: center; gap: 9px; padding: 7px 12px 7px 10px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 13.5px; white-space: nowrap; }
 .chip .wifi { width: 20px; height: 20px; }
-.chip .net-sub { color: var(--muted); font-size: 12px; }
+.chip .net-sub { display: none; }   /* sinal e qualidade ficam no balão */
 .icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface);
   display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow); flex: none; }
 .icon-btn svg { width: 17px; height: 17px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
@@ -141,7 +142,6 @@ section { margin-top: 26px; }
 .act:hover span { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); }
 .act svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .act small { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
-.act.busy svg { animation: spin .9s linear infinite; }
 .act:disabled { opacity: .6; cursor: default; }
 
 /* Agora: faixa das últimas 24h (dentro do topo; mesmas cores da linha do tempo do Histórico) */
@@ -153,11 +153,7 @@ section { margin-top: 26px; }
 
 /* Agora: cartões abaixo do topo */
 .now-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; margin: 16px 0; align-items: start; }
-.ttl { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.ttl h3 { margin: 0; }
-.ttl small { display: block; color: var(--muted); font-size: 12.5px; }
-.ic-c { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 14%, transparent); }
-.ic-c svg { width: 20px; height: 20px; stroke: var(--c); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.card-h .when { color: var(--muted); font-size: 13px; }
 .lnk { font-size: 13.5px; font-weight: 650; white-space: nowrap; }
 /* extrato de acontecimentos */
 .tx-day { font-size: 13px; font-weight: 650; color: var(--muted); margin: 14px 0 4px; }
@@ -187,8 +183,7 @@ section { margin-top: 26px; }
 .speed-now .res { margin: 6px 0 0; }
 .speed-now .res:empty { display: none; }
 .sp-recent { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-.sp-recent .legend { font-size: 12px; gap: 10px; }
-.sp-recent-t { font-weight: 650; color: var(--text); margin-right: auto; }
+.sp-recent-t { font-size: 13px; font-weight: 650; color: var(--muted); }
 .chart.mini { height: 140px; margin-top: 8px; }
 .path { max-width: 760px; margin-left: auto; margin-right: auto; }
 
@@ -210,8 +205,7 @@ section { margin-top: 26px; }
   background: var(--down); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 16px; line-height: 1; }
 .link.unk::before, .link.idle::before { background: repeating-linear-gradient(90deg, var(--faint) 0 4px, transparent 4px 9px); opacity: .6; }
 .path-note { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
-.path-ip { margin: 4px 0 0; font-size: 12.5px; color: var(--faint); }
-.path-ip:empty { display: none; }
+.path-note:empty { display: none; }
 
 /* acontecimentos (Agora e Histórico) */
 .feed { display: grid; }
@@ -243,7 +237,9 @@ input[type=date], input[type=number], select { font: inherit; font-size: 14px; p
 .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border: 0; }
 .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .btn:active { transform: translateY(1px); }
-.btn.busy svg { animation: spin .9s linear infinite; }
+/* teste de velocidade rodando: só o ponteiro do velocímetro balança, o ícone fica parado */
+.busy svg path:first-child { transform-box: view-box; transform-origin: 12px 14px; animation: needle .8s ease-in-out infinite alternate; }
+@keyframes needle { from { transform: rotate(-95deg); } to { transform: rotate(5deg); } }
 .btn:disabled { opacity: .6; cursor: default; }
 .btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .res { font-size: 13px; margin-left: 4px; }
@@ -416,10 +412,6 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
   .sp-val b { font-size: 28px; }
   .sp-tile { padding: 12px 13px; }
   .card { padding: 18px 16px; }
-  .ttl { gap: 10px; } .ic-c { width: 36px; height: 36px; }
-  .tx-card .ttl small { display: none; }
-  .speed-now #speed-run { padding: 0; width: 36px; height: 36px; justify-content: center; flex: none; }
-  .speed-now #speed-run span { display: none; }
   .path-card { padding: 18px 14px 16px; }
   .node { width: 58px; } .node b { font-size: 12px; } .node .ic { width: 42px; height: 42px; border-radius: 13px; } .link { height: 42px; } .link::before { top: 20px; } .link.bad::after { top: 9px; }
   .kpi b { font-size: 22px; }
