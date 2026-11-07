@@ -592,14 +592,14 @@ function drawSpeed(box, d, compact, retry) {
 function renderReport() {
   const s = S.sum, sp = S.speed, plan = planNow();
   if (!s) return;
+  // número grande (disponibilidade), uma linha de resumo e só os fatos que não cabem nela
   setText($("#rep-period"), t("r.periodRange", { a: NM.date(s.from), b: NM.date(s.to - 1) }));
-  const isp = s.causes.isp || { count: 0, down_s: 0 };
+  setHTML($("#rep-num"), s.avail != null ? availHTML(s.avail) : "—");
+  setText($("#rep-sub"), [!s.count ? t("gl.none") : s.count === 1 ? t("gl.one") : t("gl.many", { n: s.count }),
+    s.count ? t("gl.offline", { d: dur(s.down_s) }) : ""].filter(Boolean).join(" · "));
   const spAvg = sp && sp.down ? sp.down.avg : null;
   const facts = [
-    [t("r.avail"), NM.pct(s.avail, 3)],
-    [t("r.count"), s.count ? t("rep.outages", { n: s.count, isp: isp.count }) : "0"],
-    [t("r.offline"), dur(s.down_s)],
-    [t("r.longest"), s.longest ? t("r.longestVal", { d: dur(s.longest.dur), dt: NM.dtFull(s.longest.start) }) : "—"],
+    [t("r.longest"), s.longest ? t("r.longestVal", { d: dur(s.longest.dur), dt: NM.date(s.longest.start) }) : "—"],
     [t("r.unstable"), s.unstable.count ? `${s.unstable.count} (${dur(s.unstable.dur_s)})` : "0"],
     [t("r.speedDown"), spAvg == null ? "—" : plan.down ? t("r.speedPct", { v: mbps(spAvg), p: NM.pct(spAvg / plan.down, 0) }) : mbps(spAvg)],
     [t("r.ipChanges"), String(s.ip_changes)],

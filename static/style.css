@@ -226,7 +226,7 @@ input[type=date], input[type=number], select { font: inherit; font-size: 14px; p
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line);
   background: var(--surface); cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text); box-shadow: var(--shadow); white-space: nowrap; }
 .btn.sm { padding: 7px 13px; font-size: 13px; }
-.btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border: 0; }
+.btn.primary { background: var(--accent); color: #fff; border: 0; }
 .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .btn:active { transform: translateY(1px); }
 /* teste de velocidade rodando: só o ponteiro do velocímetro balança, o ícone fica parado */
@@ -315,7 +315,13 @@ input[type=date], input[type=number], select { font: inherit; font-size: 14px; p
 select { font-size: 13px; padding: 6px 9px; }
 
 /* Relatório */
-.rep { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+/* Relatório: uma coluna central (como os Ajustes); número grande no alto e os fatos em linhas */
+#v-report { max-width: 680px; margin: 0 auto; }
+.rep { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.rep-lbl { font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.rep-main .hero-num { margin-top: 6px; }
+.rep-sub { margin: 6px 0 4px; color: var(--muted); font-size: 14px; }
+.rep-main .btns .btn { flex: 1; justify-content: center; }
 .facts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; margin: 12px 0 18px; }
 .facts dt, .facts dd { margin: 0; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .facts dt { color: var(--muted); padding-right: 12px; }
@@ -373,7 +379,6 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
 
 @media (max-width: 980px) {
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .rep { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
   .now-grid, .two { grid-template-columns: minmax(0, 1fr); }
