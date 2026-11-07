@@ -48,15 +48,19 @@
   <main class="view" id="v-now">
     <!-- topo no estilo app de banco: número grande, gradiente pela situação, atalhos redondos -->
     <div class="hero is-idle" id="status">
-      <span class="pill"><i></i><span id="st-title" data-i18n="st.connecting"></span></span>
-      <div class="hero-lbl" id="st-lbl"></div>
-      <div class="hero-num" id="st-num"></div>
-      <div class="hero-sub" id="st-sub" data-i18n="st.fetching"></div>
+      <div class="hero-row">
+      <div class="hero-txt">
+        <span class="pill"><i></i><span id="st-title" data-i18n="st.connecting"></span></span>
+        <div class="hero-lbl" id="st-lbl"></div>
+        <div class="hero-num" id="st-num"></div>
+        <div class="hero-sub" id="st-sub" data-i18n="st.fetching"></div>
+      </div>
       <div class="acts">
         <button class="act" id="act-speed"><span><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg></span><small data-i18n="act.speed"></small></button>
         <a class="act" href="#history"><span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><small data-i18n="tab.history"></small></a>
         <a class="act" href="#report"><span><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg></span><small data-i18n="tab.report"></small></a>
         <a class="act" href="#settings"><span><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span><small data-i18n="tab.settings"></small></a>
+      </div>
       </div>
       <!-- últimas 24h: faixa com as quedas e a instabilidade; toque abre o histórico -->
       <div class="day" id="day">

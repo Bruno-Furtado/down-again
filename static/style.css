@@ -108,7 +108,7 @@ section { margin-top: 26px; }
 
 /* Agora: topo no estilo app de banco. Gradiente parado (sem animação), cor pela situação. */
 .hero { --g1: #19b37e; --g2: #5a4bf0; --g0: #0d1838; --dot: #5ff2b6;
-  position: relative; border-radius: 28px; padding: 26px 28px 20px; color: #fff; text-align: center; overflow: hidden;
+  position: relative; border-radius: 28px; padding: 26px 28px 20px; color: #fff; overflow: hidden;
   background: radial-gradient(90% 130% at 8% 0%, var(--g1) 0%, transparent 62%), radial-gradient(80% 120% at 100% 100%, var(--g2) 0%, transparent 66%), var(--g0);
   box-shadow: 0 24px 48px -32px color-mix(in srgb, var(--g2) 80%, transparent); }
 .hero.is-warn { --g1: #f5a524; --g2: #e2541f; --g0: #3a1b08; --dot: #ffd166; }
@@ -121,14 +121,16 @@ section { margin-top: 26px; }
 .is-down .pill i::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #fff;
   animation: pulse 1.4s infinite ease-out; will-change: transform, opacity; }
 @keyframes pulse { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(3.2); opacity: 0; } }
+.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.hero-txt { min-width: 0; }
 .hero-lbl { margin-top: 18px; font-size: 14px; opacity: .78; }
 .hero-lbl:empty { display: none; }
 .hero-num { font-size: 68px; font-weight: 750; letter-spacing: -.045em; line-height: 1.02; margin-top: 2px; }
 .hero-num:empty { display: none; }
 .hero-num .dec { font-size: .52em; letter-spacing: -.02em; opacity: .9; }
-.hero-sub { margin: 8px auto 0; font-size: 14px; opacity: .85; max-width: 560px; }
+.hero-sub { margin: 8px 0 0; font-size: 14px; opacity: .85; max-width: 560px; }
 .hero-sub b { font-weight: 700; opacity: 1; }
-.acts { display: flex; justify-content: center; gap: 30px; margin-top: 22px; }
+.acts { display: flex; gap: 14px; flex: none; padding-bottom: 2px; }
 .act { display: flex; flex-direction: column; align-items: center; gap: 7px; color: #fff; border: 0; background: none; padding: 0; cursor: pointer; width: 72px; }
 .act span { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .16); transition: background .15s; }
 .act:hover span { background: rgba(255, 255, 255, .26); }
@@ -138,7 +140,7 @@ section { margin-top: 26px; }
 .act:disabled { opacity: .6; cursor: default; }
 
 /* Agora: faixa das últimas 24h (dentro do status) */
-.day { margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .14); cursor: pointer; text-align: left; }
+.day { margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .14); cursor: pointer; }
 .day-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13.5px; margin-bottom: 8px; }
 .day-h span { opacity: .75; }
 .day-ticks { display: flex; justify-content: space-between; font-size: 11px; opacity: .6; margin-top: 5px; }
@@ -380,6 +382,8 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
 }
 @media (max-width: 860px) {
   .now-grid, .two { grid-template-columns: minmax(0, 1fr); }
+  .hero-row { flex-direction: column; align-items: stretch; gap: 0; }
+  .acts { margin-top: 20px; }
   .chart.mini { height: 120px; }
 }
 /* celular: abas viram a barra de baixo, como num app */
@@ -404,7 +408,7 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
 @media (max-width: 560px) {
   .hero { padding: 22px 16px 16px; border-radius: 26px; }
   .hero-num { font-size: 56px; }
-  .acts { gap: 6px; justify-content: space-around; }
+  .acts { gap: 6px; justify-content: space-between; margin-top: 20px; }
   .act { width: 68px; }
   .act small { font-size: 11.5px; }
   .sp-val b { font-size: 28px; }
