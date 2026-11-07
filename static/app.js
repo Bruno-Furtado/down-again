@@ -450,9 +450,13 @@ async function loadSummary() {
 }
 const loadSpeed = loadSummary;
 
+// Caixa de número: só o rótulo e o número grande; o detalhe fica no balão (passar o mouse ou tocar).
 function kpi(color, title, value, sub, tip) {
-  return `<div class="card kpi" style="--c:${color}" ${tip ? `data-tip="${esc(tip)}"` : ""}><h3><i></i>${title}</h3><b>${value}</b><small>${sub}</small></div>`;
+  const more = [sub, tip].filter((x) => x && x !== "&nbsp;").join("<br>");
+  return `<div class="card kpi" style="--c:${color}" ${more ? `data-tip="${esc(more)}"` : ""}><h3><i></i>${title.charAt(0).toUpperCase() + title.slice(1)}</h3><b>${value}</b></div>`;
 }
+// "511 Mbps" → número grande e a unidade pequena, como na aba Agora
+const unitHTML = (s) => s.replace(/^([\d.,]+)\s*(\D.*)$/, '$1<span class="u">$2</span>');
 
 function renderSummary() {
   const s = S.sum;
@@ -467,11 +471,11 @@ function renderSummary() {
   const avColor = av == null ? "var(--unknown)" : av >= 0.995 ? "var(--ok)" : av >= 0.98 ? "var(--warn)" : "var(--down)";
   const spAvg = sp && sp.down ? sp.down.avg : null;
   setHTML($("#kpis"), [
-    kpi(avColor, t("gauge.label"), NM.pct(av, av != null && av < 0.9995 ? 2 : 1), av == null ? t("gauge.noData") : t("gauge.sub", { down: dur(s.down_s), mon: dur(s.mon_s) })),
+    kpi(avColor, t("gauge.label"), av != null ? availHTML(av) : "—", av == null ? t("gauge.noData") : t("gauge.sub", { down: dur(s.down_s), mon: dur(s.mon_s) })),
     kpi("var(--down)", t("kpi.outages"), String(s.count), s.count ? t("kpi.outagesSub", { isp: isp.count, n: s.short }) : t("kpi.none"), t("kpi.ispTip")),
     kpi("var(--accent-2)", t("kpi.longest"), s.longest ? dur(s.longest.dur) : "—", s.longest ? esc(NM.dt(s.longest.start)) : "&nbsp;"),
     kpi("var(--unst)", t("kpi.unstable"), String(s.unstable.count), s.unstable.count ? t("kpi.unstableSub", { d: dur(s.unstable.dur_s) }) : t("kpi.none"), t("kpi.unstableTip")),
-    kpi("var(--accent)", t("kpi.speed"), spAvg != null ? mbps(spAvg) : "—", spAvg != null && plan.down ? t("speed.ofPlan", { p: NM.pct(spAvg / plan.down, 0) }) : sp && sp.count ? t("kpi.speedTests", { n: sp.count }) : t("speed.empty")),
+    kpi("var(--accent)", t("kpi.speed"), spAvg != null ? unitHTML(mbps(spAvg)) : "—", spAvg != null && plan.down ? t("speed.ofPlan", { p: NM.pct(spAvg / plan.down, 0) }) : sp && sp.count ? t("kpi.speedTests", { n: sp.count }) : t("speed.empty")),
   ].join(""));
 
   setHTML($("#timeline"), NM.timelineHTML(s));

@@ -247,11 +247,13 @@ input[type=date], input[type=number], select { font: inherit; font-size: 14px; p
 
 /* Histórico: números do período */
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-.kpi { padding: 15px 16px; }
-.kpi h3 { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+/* caixas de número: rótulo pequeno e o número grande; o detalhe fica no balão */
+.kpi { padding: 16px 18px 18px; cursor: default; }
+.kpi h3 { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
 .kpi h3 i { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--accent)); flex: none; }
-.kpi b { display: block; font-size: 25px; letter-spacing: -.025em; margin-top: 4px; line-height: 1.15; }
-.kpi small { color: var(--muted); display: block; margin-top: 3px; }
+.kpi b { display: block; font-size: 34px; font-weight: 750; letter-spacing: -.035em; margin-top: 8px; line-height: 1.05; white-space: nowrap; }
+.kpi b .dec, .kpi b .u { font-size: .55em; color: var(--muted); letter-spacing: -.01em; }
+.kpi b .u { margin-left: 4px; font-weight: 600; }
 
 /* gráficos */
 .chart { position: relative; height: 220px; margin-top: 6px; }
@@ -332,12 +334,15 @@ select { font-size: 13px; padding: 6px 9px; }
 #rep-period-slot:empty { display: none; }
 
 /* Ajustes */
-.settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.settings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 680px; margin: 0 auto; }
 .settings .desc, .phone p { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
 .settings .hint { color: var(--muted); font-size: 12.5px; margin: 12px 0 0; }
 .settings .hint:empty { display: none; }
-.form { display: grid; gap: 10px; margin-top: 14px; }
-.form label, .form .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; flex-wrap: wrap; }
+.form { display: grid; margin-top: 14px; }
+.form label, .form .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; flex-wrap: wrap;
+  padding: 11px 0; border-top: 1px solid var(--line); }
+.form label:first-child, .form .field:first-child { border-top: 0; padding-top: 0; }
+.form .btns { padding-top: 12px; }
 .form label > span:first-child, .form .field > span:first-child { color: var(--muted); }
 .form select { min-width: 180px; }
 .unit { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -376,7 +381,7 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
 
 @media (max-width: 980px) {
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .settings, .rep { grid-template-columns: minmax(0, 1fr); }
+  .rep { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
   .now-grid, .two { grid-template-columns: minmax(0, 1fr); }
@@ -414,7 +419,7 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
   .card { padding: 18px 16px; }
   .path-card { padding: 18px 14px 16px; }
   .node { width: 58px; } .node b { font-size: 12px; } .node .ic { width: 42px; height: 42px; border-radius: 13px; } .link { height: 42px; } .link::before { top: 20px; } .link.bad::after { top: 9px; }
-  .kpi b { font-size: 22px; }
+  .kpi b { font-size: 28px; }
   .tl-row { grid-template-columns: 78px minmax(0, 1fr) 22px; gap: 8px; }
   .tl-day { font-size: 12px; white-space: nowrap; }
   .tl-meta span { display: none; }
