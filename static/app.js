@@ -49,7 +49,7 @@ function applyTheme() {
   if (th === "hour") { const h = new Date().getHours(); th = h >= DARK_FROM || h < DARK_TO ? "dark" : "light"; }
   if (th === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = th;
   const shown = th === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : th;
-  document.querySelector('meta[name="theme-color"]').content = shown === "dark" ? "#0b1020" : "#f3f5f9";
+  document.querySelector('meta[name="theme-color"]').content = shown === "dark" ? "#0b0b0e" : "#f2f3f6";
   $("#theme-seg").innerHTML = THEMES.map(([k, l]) => `<button data-v="${k}" class="${k === theme ? "on" : ""}">${l}</button>`).join("");
   $("#theme-hint").textContent = theme === "hour" ? t("theme.hourHint", { a: DARK_FROM, b: DARK_TO }) : theme === "system" ? t("theme.systemHint") : "";
 }
@@ -113,18 +113,27 @@ function heroState() {
     sub: esc(st.since_start ? t("hero.sinceStart", { dt: NM.dt(st.since) }) : t("hero.lastEnded", { dt: NM.dt(st.since) })) };
 }
 
+// Disponibilidade das últimas 24h com as casas decimais menores, como o saldo num app de banco.
+function availHTML(av) {
+  const n = av >= 1 ? 0 : av >= 0.9995 ? 2 : 1;
+  const m = NM.num(av * 100, n).match(/^(\d+)(\D\d+)?$/);
+  return m ? `${m[1]}<span class="dec">${m[2] || ""}%</span>` : esc(NM.pct(av, n));
+}
+
+// Topo: com a internet no ar o número grande é a disponibilidade de 24h; na queda, o tempo fora.
 function renderHero() {
   const h = heroState();
   if (renderHero.cls !== h.cls) {
-    $("#status").className = "card status is-" + h.cls;
+    $("#status").className = "hero is-" + h.cls;
     document.body.dataset.state = h.cls;
     favicon({ up: "#12b76a", down: "#f04438", warn: "#f79009", idle: "#98a2b3" }[h.cls]);
     renderHero.cls = h.cls;
   }
+  const av = S.avail24, ok = (h.cls === "up" || h.cls === "warn") && av != null;
   setText($("#st-title"), h.title);
-  setText($("#st-lbl"), h.lbl);
-  setText($("#st-big"), h.big);
-  setHTML($("#st-sub"), h.sub);
+  setText($("#st-lbl"), ok ? t("hero.avail24") : h.lbl);
+  setHTML($("#st-num"), ok ? availHTML(av) : esc(h.big));
+  setHTML($("#st-sub"), ok ? `${esc(h.lbl)} <b>${esc(h.big)}</b>` + (h.cls === "warn" ? `<br>${h.sub}` : "") : h.sub);
   const title = (h.cls === "down" ? t("title.down", { t: h.big }) : h.title) + " · down-again";
   if (document.title !== title) document.title = title;
 }
@@ -209,6 +218,9 @@ function renderGlance() {
   if (h.count) sum.push(t("gl.offline", { d: dur(h.down_s) }));
   if (h.unstable) sum.push(h.unstable === 1 ? t("gl.unstableOne") : t("gl.unstableMany", { n: h.unstable }));
   setText($("#day-sum"), sum.join(" · "));
+  const monS = g.mon.reduce((a, [x, y]) => a + (y - x), 0);
+  S.avail24 = monS > 0 ? Math.max(0, Math.min(1, 1 - h.down_s / monS)) : null;
+  renderHero();
   const seg = (cls, a, b, extra) => `<i class="${cls}" style="left:${P(a)}%;width:${P(b) - P(a)}%${extra || ""}"`;
   const tip = (label, a, b) => esc(`<b>${esc(label)}</b> · ${dur(b - a)}<br>${NM.time(a)} → ${NM.time(b)}`);
   setHTML($("#day-track"), g.mon.map(([a, b]) => seg("s-mon", a, b) + "></i>").join("") +
@@ -244,9 +256,50 @@ function row(color, start, title, tag, when, notes, live, d, maxDur) {
     <div class="ev-notes">${notes.filter(Boolean).map((n) => `<small>${esc(n)}</small>`).join("")}</div></div>`;
 }
 
+const TX_ICON = {
+  outage: '<path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><path d="M3 3l18 18"/>',
+  unstable: '<path d="M2 12h3l2.5-6 4 12 3-9 2 3H22"/>',
+  ip_change: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+};
+
+// Aba Agora: os acontecimentos como o extrato de um banco (dia, ícone, nome, valor à direita).
+function txRow(x) {
+  const end = x.ongoing ? t("list.now") : NM.time(x.end, false);
+  let color, title, sub, amount;
+  if (x.kind === "outage") {
+    const c = cause(x.cause);
+    color = c.color; title = t("ev.outageTag"); amount = dur(x.dur);
+    sub = `${c.label} · ${NM.time(x.start, false)} → ${end}` + (x.hint ? ` · ${t("hint." + x.hint)}` : "");
+  } else if (x.kind === "unstable") {
+    const d = x.data || {};
+    color = "var(--unst)"; title = t("ev.unstableTag"); amount = dur(x.dur);
+    sub = `${NM.time(x.start, false)} → ${end}` + (d.n ? ` · ${t("ev.unstableDetail", { loss: NM.pct(d.loss / d.n, 0), max: NM.ms(d.max_ms) })}` : "");
+  } else {
+    const d = x.data || {};
+    color = "var(--accent)"; title = t("ev.ip"); amount = NM.time(x.end, false);
+    sub = `${d.old || "?"} → ${d.new || "?"}`;
+  }
+  return `<div class="tx-row" style="--c:${color}"><span class="tx-ic"><svg viewBox="0 0 24 24">${TX_ICON[x.kind] || TX_ICON.ip_change}</svg></span>
+    <div class="tx-main"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
+    <div class="tx-amt"><b>${esc(amount)}</b>${x.ongoing ? `<span class="live">${t("list.live")}</span>` : ""}</div></div>`;
+}
+
+function dayName(ts) {
+  const d = new Date(ts * 1000), today = new Date(nowS() * 1000);
+  const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  return diff === 0 ? t("day.today") : diff === 1 ? t("day.yesterday") : NM.dayLabel(ts);
+}
+
 function renderRecent() {
-  const items = (S.gl && S.gl.recent) || [];
-  setHTML($("#recent"), items.length ? items.slice(0, 6).map((x) => eventRow(x)).join("") : `<div class="empty">${t("recent.none")}</div>`);
+  const items = ((S.gl && S.gl.recent) || []).slice(0, 7);
+  if (!items.length) { setHTML($("#recent"), `<div class="empty">${t("recent.none")}</div>`); return; }
+  let html = "", last = null;
+  for (const x of items) {
+    const day = dayName(x.kind === "ip_change" ? x.end : x.start);
+    if (day !== last) { html += `<div class="tx-day">${esc(day)}</div>`; last = day; }
+    html += txRow(x);
+  }
+  setHTML($("#recent"), html);
 }
 
 /* ---------- gráfico de latência ---------- */
@@ -330,9 +383,10 @@ function renderSeries() {
 /* ---------- velocidade agora ---------- */
 function speedRow(label, value, plan, color) {
   const pct = plan && value != null ? value / plan : null;
-  return `<div class="sp-row"><span class="sp-lbl">${label}</span><b>${value == null ? "—" : NM.num(value, value < 10 ? 1 : 0)}</b><small>Mbps</small>` +
-    (pct != null ? `<span class="sp-pct${pct < 0.4 ? " low" : ""}">${t("speed.ofPlan", { p: NM.pct(pct, 0) })}</span>` : "") + `</div>` +
-    `<div class="sp-bar"><i style="width:${pct != null ? Math.min(100, pct * 100) : value != null ? 100 : 0}%;--c:${color}"></i></div>`;
+  return `<div class="sp-tile" style="--c:${color}"><span class="sp-lbl">${label}</span>` +
+    `<div class="sp-val"><b>${value == null ? "—" : NM.num(value, value < 10 ? 1 : 0)}</b><small>Mbps</small></div>` +
+    `<div class="sp-bar"><i style="width:${pct != null ? Math.min(100, pct * 100) : value != null ? 100 : 0}%"></i></div>` +
+    (pct != null ? `<span class="sp-pct${pct < 0.4 ? " low" : ""}">${t("speed.ofPlan", { p: NM.pct(pct, 0) })}</span>` : "") + `</div>`;
 }
 
 function renderSpeedNow() {
@@ -343,17 +397,16 @@ function renderSpeedNow() {
     if (!l) html = `<p class="sp-meta">${t(sp.enabled ? "speed.none" : "speed.off")}</p>`;
     else if (l.error) html = `<p class="sp-meta">${esc(t("speed.failedLast", { e: l.error }))}</p>`;
     else {
-      html = speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)") +
+      html = `<div class="sp-tiles">${speedRow("↓ " + t("speed.download"), l.down, plan.down, "var(--accent)") + speedRow("↑ " + t("speed.upload"), l.up, plan.up, "var(--ok)")}</div>` +
         `<p class="sp-meta">${t("speed.ping", { p: NM.ms(l.ping), j: NM.ms(l.jitter) })}</p>`;
     }
-    const when = sp.running ? t("speed.running") : [l && t("speed.last", { d: ago(now - l.ts) }),
-      sp.enabled ? sp.next && t("speed.next", { d: ago(Math.max(0, sp.next - now)) }) : t("speed.off")].filter(Boolean).join(" · ");
-    html += `<p class="sp-meta">${esc(when)}</p>`;
     if (!plan.down && S.cfg) html += `<p class="sp-meta"><a href="#settings">${t("speed.setPlan")}</a></p>`;
+    setText($("#speed-when"), sp.running ? t("speed.running") : [l && t("speed.last", { d: ago(now - l.ts) }),
+      sp.enabled ? sp.next && t("speed.next", { d: ago(Math.max(0, sp.next - now)) }) : t("speed.off")].filter(Boolean).join(" · "));
   }
   setHTML($("#speed-vals"), html);
   const busy = !!(sp && sp.running), btn = $("#speed-run");
-  if (btn.disabled !== busy) { btn.classList.toggle("busy", busy); btn.disabled = busy; }
+  if (btn.disabled !== busy) { btn.classList.toggle("busy", busy); btn.disabled = busy; $("#act-speed").classList.toggle("busy", busy); $("#act-speed").disabled = busy; }
 }
 
 $("#speed-run").onclick = async () => {
@@ -370,6 +423,8 @@ $("#speed-run").onclick = async () => {
     }
   } catch (e) { res.className = "res bad"; res.textContent = t("noContact"); }
 };
+
+$("#act-speed").onclick = () => { $("#speed-run").click(); $(".speed-now").scrollIntoView({ behavior: "smooth", block: "center" }); };
 
 /* ---------- histórico ---------- */
 function currentRange() {

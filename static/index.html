@@ -46,15 +46,17 @@
 
   <!-- ===================== AGORA ===================== -->
   <main class="view" id="v-now">
-    <div class="card status is-idle" id="status">
-      <div class="st-main">
-        <div class="ring"><i></i></div>
-        <div class="st-body">
-          <div class="st-title" id="st-title" data-i18n="st.connecting"></div>
-          <div class="st-lbl" id="st-lbl"></div>
-          <div class="big" id="st-big"></div>
-          <div class="st-sub" id="st-sub" data-i18n="st.fetching"></div>
-        </div>
+    <!-- topo no estilo app de banco: número grande, gradiente pela situação, atalhos redondos -->
+    <div class="hero is-idle" id="status">
+      <span class="pill"><i></i><span id="st-title" data-i18n="st.connecting"></span></span>
+      <div class="hero-lbl" id="st-lbl"></div>
+      <div class="hero-num" id="st-num"></div>
+      <div class="hero-sub" id="st-sub" data-i18n="st.fetching"></div>
+      <div class="acts">
+        <button class="act" id="act-speed"><span><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg></span><small data-i18n="act.speed"></small></button>
+        <a class="act" href="#history"><span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><small data-i18n="tab.history"></small></a>
+        <a class="act" href="#report"><span><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h7"/></svg></span><small data-i18n="tab.report"></small></a>
+        <a class="act" href="#settings"><span><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span><small data-i18n="tab.settings"></small></a>
       </div>
       <!-- últimas 24h: faixa com as quedas e a instabilidade; toque abre o histórico -->
       <div class="day" id="day">
@@ -64,15 +66,15 @@
       </div>
     </div>
 
-    <div class="now-mid">
+    <div class="now-grid">
       <div class="card speed-now">
         <div class="card-h">
-          <h3 data-i18n="speed.title"></h3>
+          <div class="ttl"><span class="ic-c" style="--c:var(--accent)"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg></span>
+            <div><h3 data-i18n="speed.title"></h3><small id="speed-when"></small></div></div>
           <button class="btn sm" id="speed-run"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></svg><span data-i18n="speed.run"></span></button>
         </div>
-        <div class="sp-cols">
-        <div><div id="speed-vals"></div>
-        <p class="res" id="speed-res"></p></div>
+        <div id="speed-vals"></div>
+        <p class="res" id="speed-res"></p>
         <div class="sp-recent">
           <div class="legend">
             <span class="sp-recent-t" data-i18n="speed.recent"></span>
@@ -82,23 +84,32 @@
           </div>
           <div class="chart mini" id="speed-mini"></div>
         </div>
-        </div>
       </div>
 
-      <div class="card path-card">
-        <h3 data-i18n="path.title"></h3>
-        <div class="path">
-          <div class="node idle" id="n-pc"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span><b data-i18n="node.computer"></b><small>—</small></div>
-          <div class="link idle" id="l-1"></div>
-          <div class="node idle" id="n-gw"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a5.5 5.5 0 0 1 8 0M5.5 6.5a9 9 0 0 1 13 0"/></svg></span><b data-i18n="node.router"></b><small>—</small></div>
-          <div class="link idle" id="l-2"></div>
-          <div class="node idle" id="n-net"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b data-i18n="node.internet"></b><small>—</small></div>
-          <div class="link idle" id="l-3"></div>
-          <div class="node idle" id="n-web"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><b data-i18n="node.sites"></b><small>—</small></div>
+      <!-- acontecimentos como o extrato do banco: agrupados por dia, valor à direita -->
+      <div class="card tx-card">
+        <div class="card-h">
+          <div class="ttl"><span class="ic-c" style="--c:var(--accent-2)"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+            <div><h3 data-i18n="recent.title"></h3><small data-i18n="recent.desc"></small></div></div>
+          <a class="lnk" href="#history" data-i18n="recent.all"></a>
         </div>
-        <p class="path-note" id="path-note"></p>
-        <p class="path-ip" id="path-ip"></p>
+        <div class="tx" id="recent"></div>
       </div>
+    </div>
+
+    <div class="card path-card">
+      <h3 data-i18n="path.title"></h3>
+      <div class="path">
+        <div class="node idle" id="n-pc"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg></span><b data-i18n="node.computer"></b><small>—</small></div>
+        <div class="link idle" id="l-1"></div>
+        <div class="node idle" id="n-gw"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01M8 9a5.5 5.5 0 0 1 8 0M5.5 6.5a9 9 0 0 1 13 0"/></svg></span><b data-i18n="node.router"></b><small>—</small></div>
+        <div class="link idle" id="l-2"></div>
+        <div class="node idle" id="n-net"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><b data-i18n="node.internet"></b><small>—</small></div>
+        <div class="link idle" id="l-3"></div>
+        <div class="node idle" id="n-web"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><b data-i18n="node.sites"></b><small>—</small></div>
+      </div>
+      <p class="path-note" id="path-note"></p>
+      <p class="path-ip" id="path-ip"></p>
     </div>
 
     <section>
@@ -116,14 +127,6 @@
         </div>
         <div class="chart" id="chart"></div>
       </div>
-    </section>
-
-    <section>
-      <div class="sec-h">
-        <div><h2 data-i18n="recent.title"></h2><p data-i18n="recent.desc"></p></div>
-        <a class="btn sm" href="#history"><span data-i18n="recent.all"></span></a>
-      </div>
-      <div class="card"><div class="feed" id="recent"></div></div>
     </section>
   </main>
 
