@@ -109,49 +109,47 @@ section { margin-top: 26px; }
 .empty b { display: block; font-size: 16px; color: var(--text); margin-bottom: 4px; }
 .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 0; }
 
-/* Agora: topo no estilo app de banco. Grafite com um brilho leve da situação; só a queda pinta tudo de vermelho.
-   Gradiente parado (sem animação). */
-.hero { --g1: #24503f; --g2: #3a3e4a; --g0: #1a1c22; --dot: #5ff2b6;
-  position: relative; border-radius: 28px; padding: 26px 28px 20px; color: #fff; overflow: hidden;
-  background: radial-gradient(90% 130% at 8% 0%, var(--g1) 0%, transparent 62%), radial-gradient(80% 120% at 100% 100%, var(--g2) 0%, transparent 66%), var(--g0);
-  border: 1px solid rgba(255, 255, 255, .06); box-shadow: 0 24px 48px -32px rgba(16, 18, 24, .55); }
-.hero.is-warn { --g1: #6e4c14; --g2: #3a3e4a; --g0: #1a1c22; --dot: #ffd166; }
-.hero.is-down { --g1: #ff5a4e; --g2: #a3123f; --g0: #2b0711; --dot: #fff; }
-.hero.is-idle { --g1: #3d414c; --g2: #2e3139; --g0: #1a1c22; --dot: #cfd5e1; }
+/* Agora: topo no estilo app de banco. É um cartão como os outros (segue o tema claro/escuro);
+   a situação aparece num brilho parado no canto, na bolinha e, na queda, no número em vermelho. */
+.hero { --sc: var(--ok); --glow: 14%;
+  position: relative; border-radius: 28px; padding: 26px 28px 20px; overflow: hidden; color: var(--text);
+  background: radial-gradient(75% 150% at 0% 0%, color-mix(in srgb, var(--sc) var(--glow), transparent), transparent 70%), var(--surface);
+  border: 1px solid var(--line); box-shadow: var(--shadow); }
+.hero.is-warn { --sc: var(--warn); }
+.hero.is-down { --sc: var(--down); --glow: 22%; }
+.hero.is-idle { --sc: var(--unknown); --glow: 10%; }
 .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 11px; border-radius: 999px; font-size: 14px; font-weight: 650;
-  background: rgba(255, 255, 255, .16); backdrop-filter: blur(6px); }
-.pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); position: relative; }
+  background: color-mix(in srgb, var(--sc) 14%, var(--surface)); }
+.pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--sc); position: relative; }
 /* só a queda pulsa (transform/opacity: o navegador anima sem redesenhar a página) */
-.is-down .pill i::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: #fff;
+.is-down .pill i::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--down);
   animation: pulse 1.4s infinite ease-out; will-change: transform, opacity; }
 @keyframes pulse { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(3.2); opacity: 0; } }
 .hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .hero-txt { min-width: 0; }
-.hero-lbl { margin-top: 18px; font-size: 14px; opacity: .78; }
+.hero-lbl { margin-top: 18px; font-size: 14px; color: var(--muted); }
 .hero-lbl:empty { display: none; }
 .hero-num { font-size: 68px; font-weight: 750; letter-spacing: -.045em; line-height: 1.02; margin-top: 2px; }
 .hero-num:empty { display: none; }
-.hero-num .dec { font-size: .52em; letter-spacing: -.02em; opacity: .9; }
-.hero-sub { margin: 8px 0 0; font-size: 14px; opacity: .85; max-width: 560px; }
-.hero-sub b { font-weight: 700; opacity: 1; }
+.is-down .hero-num { color: var(--down); }
+.hero-num .dec { font-size: .52em; letter-spacing: -.02em; color: var(--muted); }
+.hero-sub { margin: 8px 0 0; font-size: 14px; color: var(--muted); max-width: 560px; }
+.hero-sub b { font-weight: 700; color: var(--text); }
 .acts { display: flex; gap: 14px; flex: none; padding-bottom: 2px; }
-.act { display: flex; flex-direction: column; align-items: center; gap: 7px; color: #fff; border: 0; background: none; padding: 0; cursor: pointer; width: 72px; }
-.act span { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .16); transition: background .15s; }
-.act:hover span { background: rgba(255, 255, 255, .26); }
-.act svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.act small { font-size: 12.5px; font-weight: 600; opacity: .9; white-space: nowrap; }
+.act { display: flex; flex-direction: column; align-items: center; gap: 7px; color: var(--text); border: 0; background: none; padding: 0; cursor: pointer; width: 72px; }
+.act span { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); transition: background .15s; }
+.act:hover span { background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); }
+.act svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.act small { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .act.busy svg { animation: spin .9s linear infinite; }
 .act:disabled { opacity: .6; cursor: default; }
 
-/* Agora: faixa das últimas 24h (dentro do status) */
-.day { margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .14); cursor: pointer; }
+/* Agora: faixa das últimas 24h (dentro do topo; mesmas cores da linha do tempo do Histórico) */
+.day { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); cursor: pointer; }
 .day-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13.5px; margin-bottom: 8px; }
-.day-h span { opacity: .75; }
-.day-ticks { display: flex; justify-content: space-between; font-size: 11px; opacity: .6; margin-top: 5px; }
-.hero .day-track { background: rgba(255, 255, 255, .1); border-radius: 9px; }
-.hero .s-mon { background: rgba(255, 255, 255, .3); }
-.hero .s-out { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .85); }
-.hero .s-uns { background: #ffd166; }
+.day-h span { color: var(--muted); }
+.day-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: 5px; }
+.day-track { border-radius: 9px; }
 
 /* Agora: cartões abaixo do topo */
 .now-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; margin: 16px 0; align-items: start; }
