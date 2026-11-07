@@ -227,58 +227,51 @@ function renderGlance() {
 }
 $("#day").onclick = () => { location.hash = "history"; };
 
-// Uma linha por acontecimento: queda, instabilidade ou troca de IP público.
-function eventRow(x, maxDur) {
-  const when = x.ongoing ? t("list.until", { t: t("list.now") }) : t("list.until", { t: NM.time(x.end) });
-  if (x.kind === "outage") {
-    const c = cause(x.cause), sig = NM.signal(x.rssi);
-    const notes = [x.hint && t("hint." + x.hint), x.ended_by && x.ended_by !== "voltou" && NM.endedBy(x.ended_by),
-      x.network && x.network + (x.rssi != null ? ` · ${Math.round(x.rssi)} dBm (${sig.label})` : "")].filter(Boolean);
-    return row(c.color, x.start, t("ev.outage", { d: dur(x.dur) }), c.label, `${esc(NM.dt(x.start))} ${when}`, notes, x.ongoing, x.dur, maxDur);
-  }
-  if (x.kind === "unstable") {
-    const d = x.data || {};
-    const detail = d.n ? t("ev.unstableDetail", { loss: NM.pct(d.loss / d.n, 0), max: NM.ms(d.max_ms) }) : "";
-    return row("var(--unst)", x.start, t("ev.unstable", { d: dur(x.dur) }), t("ev.unstableTag"), `${esc(NM.dt(x.start))} ${when}`, [detail], x.ongoing, x.dur, maxDur);
-  }
-  const d = x.data || {};
-  const why = d.silent ? t("ev.ipSilent") : d.late ? t("ev.ipLate") : d.hint ? t("hint." + d.hint) : "";
-  return row("var(--accent)", x.end, t("ev.ip"), t("ev.ipTag"), esc(NM.dt(x.end)), [`${d.old || "?"} → ${d.new || "?"}`, why], false, 0, maxDur);
-}
-
-function row(color, start, title, tag, when, notes, live, d, maxDur) {
-  return `<div class="ev" data-start="${start}" style="--c:${color}"><i class="ev-dot"></i>
-    <div class="ev-main"><b>${esc(title)}</b>${live ? `<span class="live">${t("list.live")}</span>` : ""}<small>${when}</small></div>
-    <div class="ev-tag"><span>${esc(tag)}</span>${maxDur && d ? `<u style="width:${Math.max(4, (d / maxDur) * 100)}%"></u>` : ""}</div>
-    <div class="ev-notes">${notes.filter(Boolean).map((n) => `<small>${esc(n)}</small>`).join("")}</div></div>`;
-}
-
 const TX_ICON = {
   outage: '<path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><path d="M3 3l18 18"/>',
   unstable: '<path d="M2 12h3l2.5-6 4 12 3-9 2 3H22"/>',
   ip_change: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
 };
 
-// Aba Agora: os acontecimentos como o extrato de um banco (dia, ícone, nome, valor à direita).
-function txRow(x) {
+// Um acontecimento como uma linha de extrato de banco: ícone, nome, horário e o "valor" (duração) à direita.
+// No Histórico o detalhe (sinal, causa provável, perda) vai no balão; withDate põe o dia quando a lista não é por dia.
+function txRow(x, { tip = false, withDate = false } = {}) {
   const end = x.ongoing ? t("list.now") : NM.time(x.end, false);
-  let color, title, sub, amount;
+  const at = (ts) => (withDate ? NM.dt(ts).replace(/:\d\d$/, "") : NM.time(ts, false));
+  let color, title, sub, amount, notes = [];
   if (x.kind === "outage") {
-    const c = cause(x.cause);
+    const c = cause(x.cause), sig = NM.signal(x.rssi);
     color = c.color; title = t("ev.outageTag"); amount = dur(x.dur);
-    sub = `${c.label} · ${NM.time(x.start, false)} → ${end}`;
+    sub = `${c.label} · ${at(x.start)} → ${end}`;
+    notes = [x.hint && t("hint." + x.hint), x.ended_by && x.ended_by !== "voltou" && NM.endedBy(x.ended_by),
+      x.network && x.network + (x.rssi != null ? ` · ${Math.round(x.rssi)} dBm (${sig.label})` : "")];
   } else if (x.kind === "unstable") {
     const d = x.data || {};
     color = "var(--unst)"; title = t("ev.unstableTag"); amount = dur(x.dur);
-    sub = `${NM.time(x.start, false)} → ${end}`;
+    sub = `${at(x.start)} → ${end}`;
+    notes = [d.n && t("ev.unstableDetail", { loss: NM.pct(d.loss / d.n, 0), max: NM.ms(d.max_ms) })];
   } else {
     const d = x.data || {};
     color = "var(--accent)"; title = t("ev.ipTag"); amount = NM.time(x.end, false);
-    sub = d.new || "?";
+    sub = withDate ? `${NM.dayLabel(x.end)} · ${d.new || "?"}` : d.new || "?";
+    notes = [`${d.old || "?"} → ${d.new || "?"}`, d.silent ? t("ev.ipSilent") : d.late ? t("ev.ipLate") : d.hint ? t("hint." + d.hint) : ""];
   }
-  return `<div class="tx-row" style="--c:${color}"><span class="tx-ic"><svg viewBox="0 0 24 24">${TX_ICON[x.kind] || TX_ICON.ip_change}</svg></span>
+  notes = notes.filter(Boolean).map(esc).join("<br>");
+  const tipAttr = tip && notes ? ` data-tip="${esc(notes)}"` : "";
+  return `<div class="tx-row" data-start="${x.kind === "ip_change" ? x.end : x.start}" style="--c:${color}"${tipAttr}><span class="tx-ic"><svg viewBox="0 0 24 24">${TX_ICON[x.kind] || TX_ICON.ip_change}</svg></span>
     <div class="tx-main"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
     <div class="tx-amt"><b>${esc(amount)}</b>${x.ongoing ? `<span class="live">${t("list.live")}</span>` : ""}</div></div>`;
+}
+
+// Linhas agrupadas por dia ("Hoje", "Ontem", "qua., 04/11"), como num extrato.
+function txList(items, opts) {
+  let html = "", last = null;
+  for (const x of items) {
+    const day = dayName(x.kind === "ip_change" ? x.end : x.start);
+    if (day !== last) { html += `<div class="tx-day">${esc(day)}</div>`; last = day; }
+    html += txRow(x, opts);
+  }
+  return html;
 }
 
 function dayName(ts) {
@@ -290,13 +283,7 @@ function dayName(ts) {
 function renderRecent() {
   const items = ((S.gl && S.gl.recent) || []).slice(0, 5);
   if (!items.length) { setHTML($("#recent"), `<div class="empty">${t("recent.none")}</div>`); return; }
-  let html = "", last = null;
-  for (const x of items) {
-    const day = dayName(x.kind === "ip_change" ? x.end : x.start);
-    if (day !== last) { html += `<div class="tx-day">${esc(day)}</div>`; last = day; }
-    html += txRow(x);
-  }
-  setHTML($("#recent"), html);
+  setHTML($("#recent"), txList(items));
 }
 
 /* ---------- gráfico de latência ---------- */
@@ -517,10 +504,11 @@ function renderList() {
   let list = items.filter((x) => S.filter === "all" || x.kind === S.filter);
   const key = (x) => (x.kind === "ip_change" ? x.end : x.start);
   list = list.slice().sort(S.sort === "long" ? (a, b) => (b.dur || 0) - (a.dur || 0) : (a, b) => key(b) - key(a));
-  const maxDur = Math.max(1, ...list.map((x) => (x.kind === "ip_change" ? 0 : x.dur)));
   setText($("#list-desc"), items.length ? t("list.desc", { n: S.sum.outages.length, u: counts.unstable }) : t("list.descNone"));
   if (!list.length) { setHTML($("#olist"), `<div class="empty">${t("list.empty")}</div>`); return; }
-  setHTML($("#olist"), list.slice(0, S.limit).map((x) => eventRow(x, maxDur)).join("") +
+  const page = list.slice(0, S.limit);
+  // mais recentes: agrupado por dia; mais longas: lista corrida com o dia em cada linha
+  setHTML($("#olist"), (S.sort === "long" ? page.map((x) => txRow(x, { tip: true, withDate: true })).join("") : txList(page, { tip: true })) +
     (list.length > S.limit ? `<button class="btn more" id="more">${t("list.more", { n: Math.min(40, list.length - S.limit), r: list.length - S.limit })}</button>` : ""));
   const more = $("#more");
   if (more) more.onclick = () => { S.limit += 40; renderList(); };
@@ -535,7 +523,7 @@ $("#timeline").onclick = (e) => {
   const idx = allEvents().sort((a, b) => b.start - a.start).findIndex((x) => String(x.start) === el.dataset.start);
   if (idx >= S.limit) S.limit = idx + 10;
   renderList();
-  const r = document.querySelector(`#olist .ev[data-start="${el.dataset.start}"]`);
+  const r = document.querySelector(`#olist .tx-row[data-start="${el.dataset.start}"]`);
   if (r) { r.scrollIntoView({ behavior: "smooth", block: "center" }); r.classList.add("flash"); setTimeout(() => r.classList.remove("flash"), 1800); }
 };
 

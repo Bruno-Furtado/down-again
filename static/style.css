@@ -41,7 +41,7 @@ body {
   min-height: 100vh;
 }
 b, strong { font-weight: 650; }
-.num, .kpi b, .hero-num, .hero-sub, .sp-val, .tx-amt, .tl-meta, .ev-tag, .facts dd { font-variant-numeric: tabular-nums; }
+.num, .kpi b, .hero-num, .hero-sub, .sp-val, .tx-amt, .tl-meta, .facts dd { font-variant-numeric: tabular-nums; }
 a { color: var(--accent); text-decoration: none; }
 button { font: inherit; color: inherit; }
 .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px 56px;
@@ -208,16 +208,8 @@ section { margin-top: 26px; }
 .path-note:empty { display: none; }
 
 /* acontecimentos (Agora e Histórico) */
-.feed { display: grid; }
-.ev { display: grid; grid-template-columns: 10px minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1.3fr); gap: 4px 14px; align-items: center;
-  padding: 11px 6px; border-top: 1px solid var(--line); border-radius: 10px; }
-.ev:first-child { border-top: 0; }
-.ev-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
-.ev small { display: block; color: var(--muted); }
-.ev-tag span { font-size: 12.5px; font-weight: 650; color: var(--c); }
-.ev-tag u { display: block; height: 4px; border-radius: 2px; margin-top: 5px; background: var(--c); opacity: .5; text-decoration: none; }
-.ev-notes small { line-height: 1.35; }
-.ev.flash { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.tx-row.flash { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 12px; }
+.tx-row[data-tip] { cursor: default; }
 .live { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: var(--down); border-radius: 5px; padding: 1px 6px; margin-left: 6px; }
 .more { display: block; margin: 12px auto 0; }
 
@@ -404,9 +396,6 @@ footer { margin-top: 34px; text-align: center; color: var(--faint); font-size: 1
   #hist-period-slot, #rep-period-slot, .period { width: 100%; }
   .period { align-items: stretch; }
   .period .seg { width: 100%; } .period .seg button { flex: 1; justify-content: center; }
-  .ev { grid-template-columns: 10px minmax(0, 1fr) auto; }
-  .ev-notes { grid-column: 2 / -1; }
-  .ev-notes:empty { display: none; }
 }
 @media (max-width: 560px) {
   .hero { padding: 22px 16px 16px; border-radius: 26px; }
