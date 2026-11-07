@@ -1753,6 +1753,8 @@ STATIC_FILES = {
     "/icon-192.png": ("icon-192.png", "image/png"),
     "/icon-512.png": ("icon-512.png", "image/png"),
     "/icon-maskable-512.png": ("icon-maskable-512.png", "image/png"),
+    # fonte do painel (licença OFL em static/fonts/OFL.txt), servida daqui: funciona com a internet fora
+    "/fonts/plus-jakarta-sans.woff2": ("fonts/plus-jakarta-sans.woff2", "font/woff2"),
 }
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "

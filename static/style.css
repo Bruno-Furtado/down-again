@@ -1,4 +1,4 @@
-/* Painel down-again — sem fontes ou bibliotecas externas: precisa abrir com a internet fora.
+/* Painel down-again — nada vindo da internet (a fonte é servida pelo próprio monitor): precisa abrir com a internet fora.
    Fica aberto o dia todo: nada de animação contínua nem fundo fixo (só o alerta de queda pulsa). */
 :root {
   --bg: #f2f3f6; --surface: #ffffff; --surface-2: #f2f3f6; --line: rgba(16, 24, 40, .08);
@@ -28,12 +28,15 @@
   color-scheme: dark;
 }
 
+/* Plus Jakarta Sans (variável, só o alfabeto latino: cobre português e inglês; chinês cai na fonte do sistema) */
+@font-face { font-family: "Plus Jakarta Sans"; src: url(/fonts/plus-jakarta-sans.woff2) format("woff2"); font-weight: 200 800; font-display: swap; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 15px/1.45 "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
@@ -106,14 +109,15 @@ section { margin-top: 26px; }
 .empty b { display: block; font-size: 16px; color: var(--text); margin-bottom: 4px; }
 .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 0; }
 
-/* Agora: topo no estilo app de banco. Gradiente parado (sem animação), cor pela situação. */
-.hero { --g1: #19b37e; --g2: #5a4bf0; --g0: #0d1838; --dot: #5ff2b6;
+/* Agora: topo no estilo app de banco. Grafite com um brilho leve da situação; só a queda pinta tudo de vermelho.
+   Gradiente parado (sem animação). */
+.hero { --g1: #24503f; --g2: #3a3e4a; --g0: #1a1c22; --dot: #5ff2b6;
   position: relative; border-radius: 28px; padding: 26px 28px 20px; color: #fff; overflow: hidden;
   background: radial-gradient(90% 130% at 8% 0%, var(--g1) 0%, transparent 62%), radial-gradient(80% 120% at 100% 100%, var(--g2) 0%, transparent 66%), var(--g0);
-  box-shadow: 0 24px 48px -32px color-mix(in srgb, var(--g2) 80%, transparent); }
-.hero.is-warn { --g1: #f5a524; --g2: #e2541f; --g0: #3a1b08; --dot: #ffd166; }
+  border: 1px solid rgba(255, 255, 255, .06); box-shadow: 0 24px 48px -32px rgba(16, 18, 24, .55); }
+.hero.is-warn { --g1: #6e4c14; --g2: #3a3e4a; --g0: #1a1c22; --dot: #ffd166; }
 .hero.is-down { --g1: #ff5a4e; --g2: #a3123f; --g0: #2b0711; --dot: #fff; }
-.hero.is-idle { --g1: #7f889c; --g2: #3d4457; --g0: #1a1d27; --dot: #cfd5e1; }
+.hero.is-idle { --g1: #3d414c; --g2: #2e3139; --g0: #1a1c22; --dot: #cfd5e1; }
 .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 13px 6px 11px; border-radius: 999px; font-size: 14px; font-weight: 650;
   background: rgba(255, 255, 255, .16); backdrop-filter: blur(6px); }
 .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); position: relative; }
