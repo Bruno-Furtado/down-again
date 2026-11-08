@@ -626,9 +626,10 @@ function renderSettings() {
   const c = S.cfg;
   if (!c) return;
   if (document.activeElement && document.activeElement.matches("#v-settings select")) return;   // não fecha a lista aberta
-  const hours = [-1, 6, 7, 8, 9, 10, 12, 18, 20, 22];
-  if (!hours.includes(c.daily_summary_hour)) hours.push(c.daily_summary_hour);
-  $("#set-daily").innerHTML = hours.sort((a, b) => a - b).map((h) => opt(h, h < 0 ? t("set.off") : t("set.at", { h: NM.pad(h) + ":00" }), c.daily_summary_hour)).join("");
+  // resumo semanal: domingo à noite (o monitor manda os 7 dias anteriores)
+  const hours = [-1, 18, 19, 20, 21, 22];
+  if (!hours.includes(c.weekly_summary_hour)) hours.push(c.weekly_summary_hour);
+  $("#set-weekly").innerHTML = hours.sort((a, b) => a - b).map((h) => opt(h, h < 0 ? t("set.off") : t("set.sunAt", { h: NM.pad(h) + ":00" }), c.weekly_summary_hour)).join("");
   const mins = [0, 30, 60, 300, 900];
   if (!mins.includes(c.notify_min_seconds)) mins.push(c.notify_min_seconds);
   $("#set-min").innerHTML = mins.sort((a, b) => a - b).map((s) => opt(s, s ? t("set.longer", { d: dur(s) }) : t("set.all"), c.notify_min_seconds)).join("");
