@@ -161,30 +161,62 @@ class PublicIpTests(MonitorBase):
         self.assertEqual(len(self.rows("SELECT id FROM events")), 1)
 
 
-class DailySummaryTests(MonitorBase):
-    def test_summary_of_yesterday(self):
-        self.feed([GOOD] * 800 + [LOST] * 12 + [GOOD] * 20)      # ~1h10 monitorada ontem, 1 queda
-        day = datetime.fromtimestamp(self.clock[0]).replace(hour=0, minute=0, second=0, microsecond=0)
-        title, body = da.daily_summary(day, self.cfg, "en")
-        self.assertTrue(title.startswith("Yesterday: 1 outage"))
-        self.assertIn("ISP's fault: 1", body)
-        self.assertIsNone(da.daily_summary(day - timedelta(days=3), self.cfg, "en"))   # nada monitorado
+class WeeklySummaryTests(MonitorBase):
+    def next_sunday_after(self, ts, hour=20):
+        d = datetime.fromtimestamp(ts).replace(hour=hour, minute=0, second=0, microsecond=0)
+        while d.weekday() != 6 or d.timestamp() <= ts:
+            d += timedelta(days=1)
+        return d
 
-    def test_sent_once_per_day(self):
-        self.feed([GOOD] * 800)
-        self.cfg["daily_summary_hour"] = 0
+    def at(self, now):
+        """Troca o 'agora' do monitor (datetime.now) dentro do bloco."""
         real = da.datetime
-        today = datetime.fromtimestamp(self.clock[0]) + timedelta(days=1)
-        da.datetime = types.SimpleNamespace(now=lambda: today, fromtimestamp=real.fromtimestamp)
+        da.datetime = types.SimpleNamespace(now=lambda: now, fromtimestamp=real.fromtimestamp)
+        return real
+
+    def test_last_weekly_due(self):
+        sun = datetime(2026, 11, 8, 20, 0)                                   # domingo
+        self.assertEqual(da.last_weekly_due(datetime(2026, 11, 8, 20, 0), 20), sun)
+        self.assertEqual(da.last_weekly_due(datetime(2026, 11, 8, 19, 59), 20), sun - timedelta(days=7))
+        self.assertEqual(da.last_weekly_due(datetime(2026, 11, 11, 9, 0), 20), sun)   # quarta
+
+    def test_summary_of_the_week(self):
+        self.feed([GOOD] * 4400 + [LOST] * 12 + [GOOD] * 20)     # ~6h monitoradas, 1 queda
+        end = self.next_sunday_after(self.clock[0])
+        title, body = da.weekly_summary(end, self.cfg, "en")
+        self.assertTrue(title.startswith("This week: 1 outage"))
+        self.assertIn("ISP's fault: 1", body)
+        title_pt, _ = da.weekly_summary(end, self.cfg, "pt")
+        self.assertTrue(title_pt.startswith("Semana: 1 queda"))
+        self.assertIsNone(da.weekly_summary(end - timedelta(days=14), self.cfg, "en"))   # nada monitorado
+
+    def test_sent_once_per_week_and_skips_stale(self):
+        self.feed([GOOD] * 4400)
+        self.cfg["weekly_summary_hour"] = 20
+        due = self.next_sunday_after(self.clock[0])
+        real = self.at(due + timedelta(minutes=1))
         try:
             db = da.connect()
-            self.notifier.daily(db)
-            self.notifier.daily(db)
+            self.notifier.weekly(db)
+            self.notifier.weekly(db)
+            da.datetime = types.SimpleNamespace(now=lambda: due + timedelta(days=9), fromtimestamp=real.fromtimestamp)
+            self.notifier.weekly(db)          # domingo seguinte passou há mais de 24h: não manda atrasado
             db.close()
         finally:
             da.datetime = real
-        titles = [r[0] for r in self.rows("SELECT title FROM notifications")]
-        self.assertEqual(len(titles), 1)
+        self.assertEqual(len(self.rows("SELECT title FROM notifications")), 1)
+
+    def test_old_daily_setting_migrates(self):
+        for old, expected in ((-1, -1), (9, 20)):
+            cfg = dict(self.cfg)
+            cfg.pop("weekly_summary_hour", None)
+            cfg["daily_summary_hour"] = old
+            with open(da.CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f)
+            loaded = da.load_config()
+            self.assertEqual(loaded["weekly_summary_hour"], expected)
+            with open(da.CONFIG_PATH, encoding="utf-8") as f:
+                self.assertNotIn("daily_summary_hour", json.load(f))
 
     def test_fmt_pct(self):
         self.assertEqual(da.fmt_pct(0.99876, "pt"), "99,88%")

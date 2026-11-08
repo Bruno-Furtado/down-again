@@ -10,7 +10,7 @@ down-again is a home internet outage monitor that runs on an always-on computer.
 1. **Monitor thread** (`Monitor` in `down_again.py`): every `interval` seconds it pings the router, opens a TCP connection to public IPs and fetches a URL by name. It classifies the result (`ok`, `isp`, `local`, `dns`, `unknown`) and writes it to SQLite.
 2. **HTTP server** (`Handler`): serves the dashboard (`static/`) and a small JSON API on the LAN.
 
-When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows. The queue lives in the `notifications` table; code that already holds an open transaction (the monitor) must pass its own connection to `Notifier.queue(..., db=)`, or the second connection waits for the lock and the alert is lost. The notifier also sends a daily summary (`daily_summary`) at `daily_summary_hour`, once per day (`meta.daily_sent`).
+When the connection comes back, notifications go out through ntfy (`Notifier`). It uses `curl` on macOS and Linux and `urllib` on Windows. The queue lives in the `notifications` table; code that already holds an open transaction (the monitor) must pass its own connection to `Notifier.queue(..., db=)`, or the second connection waits for the lock and the alert is lost. The notifier also sends a weekly summary (`weekly_summary`, last 7 days) on Sundays at `weekly_summary_hour`, once per week (`meta.weekly_sent`); if the monitor was off at that hour it goes out when it comes back, up to 24 h late. Old configs with `daily_summary_hour` are migrated in `load_config`.
 
 Outside outages, `Stability` keeps a sliding window of the last 12 checks: 4 failed or slow ones (3× the usual median latency, at least 150 ms) open an **unstable** episode, stored in `events` (`kind='unstable'`). `PublicIP` reads the public IP from `https://1.1.1.1/cdn-cgi/trace` every 10 minutes and after each outage; a change becomes an `ip_change` event and, if an outage ended since the last read, sets that outage's `hint` (`router_restart` after a local outage, `reconnect` after an ISP one).
 
@@ -95,7 +95,7 @@ tests/test_parsers.py parser tests with sample outputs from macOS, Linux and Win
 tests/test_i18n.py    translation parity (same keys and placeholders in every language)
 tests/test_static.py  every allow-listed static file exists; manifest and HTML only point to served files
 tests/test_speed.py   speed test parsing, ping/jitter, settings validation and period stats
-tests/test_monitor.py monitor with a fake clock: outages, alert queue, instability, public IP, daily summary
+tests/test_monitor.py monitor with a fake clock: outages, alert queue, instability, public IP, weekly summary
 tools/demo.py         demo server with 7 days of simulated data (never touches dados/)
 tools/capture.mjs     regenerates docs/ images via headless Chrome + ffmpeg
 tools/cover.html      cover template (one per language via ?lang=)
@@ -110,7 +110,7 @@ SQLite tables (in `SCHEMA`):
 - `notifications`: outgoing queue, kept until it is sent.
 - `speedtests`: one row per speed test (`down_mbps`, `up_mbps`, `ping_ms`, `jitter_ms`, `error`, `manual`), kept forever.
 - `events`: instability (`unstable`) and public IP changes (`ip_change`), with details as JSON in `data`.
-- `meta`: small key/value state (last public IP, last daily summary).
+- `meta`: small key/value state (last public IP, last weekly summary).
 
 The project used to be called `netmon`. `load_config` renames an old `dados/netmon.db`, and the macOS install removes the old `com.netmon.monitor` LaunchAgent. Keep both until old installs are gone.
 

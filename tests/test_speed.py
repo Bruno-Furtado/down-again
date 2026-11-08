@@ -32,10 +32,10 @@ class ParseTests(unittest.TestCase):
     def test_parse_settings(self):
         self.assertEqual(da.parse_settings(b'{"plan_down_mbps": 600, "plan_up_mbps": "300.55"}'),
                          {"plan_down_mbps": 600.0, "plan_up_mbps": 300.6})
-        self.assertEqual(da.parse_settings(b'{"speedtest_minutes": 240, "daily_summary_hour": -1, "language": "pt"}'),
-                         {"speedtest_minutes": 240, "daily_summary_hour": -1, "language": "pt"})
+        self.assertEqual(da.parse_settings(b'{"speedtest_minutes": 240, "weekly_summary_hour": -1, "language": "pt"}'),
+                         {"speedtest_minutes": 240, "weekly_summary_hour": -1, "language": "pt"})
         bad = (b'{"plan_down_mbps": -1}', b'{"plan_down_mbps": 1e9}', b'{"plan_down_mbps": "abc"}', b"not json",
-               b'{"speedtest_minutes": 7}', b'{"daily_summary_hour": 24}', b'{"daily_summary_hour": 9.5}',
+               b'{"speedtest_minutes": 7}', b'{"weekly_summary_hour": 24}', b'{"weekly_summary_hour": 9.5}',
                b'{"notify_min_seconds": true}', b'{"language": "xx"}', b'{"ntfy_topic": "x"}', b'{}', b'[1]',
                b'{"plan_down_mbps": NaN}')
         for body in bad:

@@ -71,7 +71,7 @@ DEFAULTS = {
     "ntfy_topic": "",              # gerado na primeira execução; "" desativa
     "notify_min_seconds": 0,       # só avisa quedas com pelo menos N segundos
     "notify_monitor_gap_minutes": 5,
-    "daily_summary_hour": 9,       # resumo do dia anterior no celular a esta hora (-1 desliga)
+    "weekly_summary_hour": 20,     # resumo dos últimos 7 dias no celular, domingo a esta hora (-1 desliga)
     "speedtest_minutes": 240,      # teste de velocidade a cada N minutos (240 = 6 por dia); 0 desliga
     "speedtest_seconds": 5,        # duração de cada sentido (download e upload)
     "plan_down_mbps": 0,           # plano contratado, para comparar (0 = não informado)
@@ -136,12 +136,14 @@ TEXTS = {
         "log.unstable": "unstable connection since {since} (packet loss or high latency)",
         "log.unstable_end": "stable again after {dur} ({loss} failed and {slow} slow checks)",
         "log.ip_change": "public IP changed: {old} -> {new}",
-        "daily.title.none": "Yesterday: no outages", "daily.title.one": "Yesterday: 1 outage ({d} offline)",
-        "daily.title": "Yesterday: {n} outages ({d} offline)",
-        "daily.avail": "Availability {p} · monitored {mon}", "daily.outages": "ISP's fault: {isp} · longest {d}",
-        "daily.unstable": "Unstable: {n}× ({d})", "daily.speed": "Average speed: {down} ↓ / {up} ↑ Mbps",
-        "daily.speed_plan": " ({p} of the plan)", "daily.ip": "Public IP changed {n}×",
-        "daily.footer": "Daily summary — if it stops arriving, check the monitor.",
+        "week.title.none": "This week: no outages", "week.title.one": "This week: 1 outage ({d} offline)",
+        "week.title": "This week: {n} outages ({d} offline)",
+        "week.avail": "Availability {p} · monitored {mon}", "week.outages": "ISP's fault: {isp} · longest {d}",
+        "week.worst": "Worst day: {day} ({n}×, {d})",
+        "week.days": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday",
+        "week.unstable": "Unstable: {n}× ({d})", "week.speed": "Average speed: {down} ↓ / {up} ↑ Mbps",
+        "week.speed_plan": " ({p} of the plan)", "week.ip": "Public IP changed {n}×",
+        "week.footer": "Weekly summary — if it doesn't arrive on a Sunday, check the monitor.",
     },
     "pt": {
         "unit.d": "d", "unit.h": "h", "unit.min": "min", "unit.s": "s",
@@ -193,12 +195,14 @@ TEXTS = {
         "log.unstable": "conexão instável desde {since} (perda de pacotes ou latência alta)",
         "log.unstable_end": "estável de novo após {dur} ({loss} testes falharam e {slow} ficaram lentos)",
         "log.ip_change": "IP público trocou: {old} -> {new}",
-        "daily.title.none": "Ontem: nenhuma queda", "daily.title.one": "Ontem: 1 queda ({d} fora do ar)",
-        "daily.title": "Ontem: {n} quedas ({d} fora do ar)",
-        "daily.avail": "Disponibilidade {p} · monitorado {mon}", "daily.outages": "Do provedor: {isp} · maior {d}",
-        "daily.unstable": "Instável: {n}× ({d})", "daily.speed": "Velocidade média: {down} ↓ / {up} ↑ Mbps",
-        "daily.speed_plan": " ({p} do plano)", "daily.ip": "IP público trocou {n}×",
-        "daily.footer": "Resumo diário — se um dia não chegar, confira o monitor.",
+        "week.title.none": "Semana: nenhuma queda", "week.title.one": "Semana: 1 queda ({d} fora do ar)",
+        "week.title": "Semana: {n} quedas ({d} fora do ar)",
+        "week.avail": "Disponibilidade {p} · monitorado {mon}", "week.outages": "Do provedor: {isp} · maior {d}",
+        "week.worst": "Pior dia: {day} ({n}×, {d})",
+        "week.days": "segunda,terça,quarta,quinta,sexta,sábado,domingo",
+        "week.unstable": "Instável: {n}× ({d})", "week.speed": "Velocidade média: {down} ↓ / {up} ↑ Mbps",
+        "week.speed_plan": " ({p} do plano)", "week.ip": "IP público trocou {n}×",
+        "week.footer": "Resumo semanal — se num domingo ele não chegar, confira o monitor.",
     },
     "zh": {
         "unit.d": "天", "unit.h": "小时", "unit.min": "分", "unit.s": "秒",
@@ -250,12 +254,14 @@ TEXTS = {
         "log.unstable": "连接不稳定，开始于 {since}（丢包或延迟高）",
         "log.unstable_end": "已恢复稳定，持续 {dur}（{loss} 次失败，{slow} 次过慢）",
         "log.ip_change": "公网 IP 已变更：{old} -> {new}",
-        "daily.title.none": "昨天：没有断线", "daily.title.one": "昨天：1 次断线（离线 {d}）",
-        "daily.title": "昨天：{n} 次断线（离线 {d}）",
-        "daily.avail": "可用率 {p} · 监控 {mon}", "daily.outages": "运营商原因：{isp} 次 · 最长 {d}",
-        "daily.unstable": "不稳定：{n} 次（{d}）", "daily.speed": "平均网速：下行 {down} / 上行 {up} Mbps",
-        "daily.speed_plan": "（套餐的 {p}）", "daily.ip": "公网 IP 变更 {n} 次",
-        "daily.footer": "每日摘要 — 如果某天没收到，请检查监控。",
+        "week.title.none": "本周：没有断线", "week.title.one": "本周：1 次断线（离线 {d}）",
+        "week.title": "本周：{n} 次断线（离线 {d}）",
+        "week.avail": "可用率 {p} · 监控 {mon}", "week.outages": "运营商原因：{isp} 次 · 最长 {d}",
+        "week.worst": "最差的一天：{day}（{n} 次，{d}）",
+        "week.days": "周一,周二,周三,周四,周五,周六,周日",
+        "week.unstable": "不稳定：{n} 次（{d}）", "week.speed": "平均网速：下行 {down} / 上行 {up} Mbps",
+        "week.speed_plan": "（套餐的 {p}）", "week.ip": "公网 IP 变更 {n} 次",
+        "week.footer": "每周摘要 — 如果某个周日没收到，请检查监控。",
     },
 }
 LANG = "en"   # definido em load_config
@@ -362,7 +368,14 @@ def load_config():
     cfg = dict(DEFAULTS)
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            cfg.update(json.load(f))
+            saved = json.load(f)
+        cfg.update(saved)
+        # até a v1.3 o resumo era diário: quem tinha desligado continua sem resumo; os outros ganham o semanal
+        if "daily_summary_hour" in saved:
+            if "weekly_summary_hour" not in saved:
+                cfg["weekly_summary_hour"] = -1 if saved["daily_summary_hour"] == -1 else DEFAULTS["weekly_summary_hour"]
+            cfg.pop("daily_summary_hour", None)
+            save_config(cfg)
     else:
         cfg["ntfy_topic"] = "down-again-" + secrets.token_hex(10)
         fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -783,21 +796,23 @@ class Notifier:
             return False, str(e)
         return r.returncode == 0, r.stderr.decode("utf-8", "replace").strip()
 
-    def daily(self, db):
-        """Resumo do dia anterior a partir de daily_summary_hour. Também prova, todo dia,
-        que o caminho dos avisos funciona: se ele não chegar, há algo errado."""
-        hour = int(self.cfg.get("daily_summary_hour", -1))
+    def weekly(self, db):
+        """Resumo dos últimos 7 dias, no domingo a partir de weekly_summary_hour, uma vez por semana.
+        Se o monitor estava desligado nessa hora, sai quando ele voltar (até 24h depois; mais que isso, pula).
+        Também prova, toda semana, que o caminho dos avisos funciona: se ele não chegar, há algo errado."""
+        hour = self.cfg.get("weekly_summary_hour", -1)
+        if not self.enabled or not isinstance(hour, int) or not 0 <= hour <= 23:
+            return
         now = datetime.now()
-        if not self.enabled or hour < 0 or now.hour < hour:
+        due = last_weekly_due(now, hour)
+        key = due.strftime("%Y-%m-%d")
+        if meta_get(db, "weekly_sent") == key:
             return
-        day = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        key = day.strftime("%Y-%m-%d")
-        if meta_get(db, "daily_sent") == key:
-            return
-        meta_set(db, "daily_sent", key)
-        msg = daily_summary(day, self.cfg)
-        if msg:
-            self.queue(msg[0], msg[1], "bar_chart", db=db)
+        meta_set(db, "weekly_sent", key)
+        if now - due <= timedelta(days=1):
+            msg = weekly_summary(due, self.cfg)
+            if msg:
+                self.queue(msg[0], msg[1], "bar_chart", db=db)
         db.commit()
 
     def stats(self):
@@ -818,7 +833,7 @@ class Notifier:
             if not self.enabled:
                 continue
             try:
-                self.daily(db)
+                self.weekly(db)
             except Exception as e:      # resumo é extra: nunca derruba o envio dos avisos
                 log(tr("log.db_error", err=repr(e)))
             rows = db.execute("SELECT id, title, body, tag FROM notifications WHERE sent_ts IS NULL "
@@ -1036,11 +1051,11 @@ def parse_settings(body):
             if not 0 <= v <= 100000:
                 raise ValueError(key)
             out[key] = round(v, 1)
-        elif key in ("speedtest_minutes", "daily_summary_hour", "notify_min_seconds"):
+        elif key in ("speedtest_minutes", "weekly_summary_hour", "notify_min_seconds"):
             if isinstance(value, bool) or int(value) != value:
                 raise ValueError(key)
             v = int(value)
-            ok = {"speedtest_minutes": v in SPEED_CHOICES, "daily_summary_hour": -1 <= v <= 23,
+            ok = {"speedtest_minutes": v in SPEED_CHOICES, "weekly_summary_hour": -1 <= v <= 23,
                   "notify_min_seconds": 0 <= v <= 86400}[key]
             if not ok:
                 raise ValueError(key)
@@ -1648,33 +1663,43 @@ def fmt_pct(x, lang=None, n=2):
     return (text.replace(".", ",") if (lang or LANG) == "pt" else text) + "%"
 
 
-def daily_summary(day, cfg, lang=None):
-    """(título, texto) do aviso da manhã sobre o dia que começa em `day`; None se mal foi monitorado."""
-    t0, t1 = day.timestamp(), (day + timedelta(days=1)).timestamp()
+def last_weekly_due(now, hour):
+    """Último domingo às `hour` que já passou (ou agora, se for exatamente a hora)."""
+    d = (now - timedelta(days=(now.weekday() - 6) % 7)).replace(hour=hour, minute=0, second=0, microsecond=0)
+    return d - timedelta(days=7) if d > now else d
+
+
+def weekly_summary(end, cfg, lang=None):
+    """(título, texto) do resumo dos 7 dias que terminam em `end`; None se mal foi monitorado."""
+    t0, t1 = (end - timedelta(days=7)).timestamp(), end.timestamp()
     s = summarize(t0, t1)
-    if s["mon_s"] < 3600:
+    if s["mon_s"] < 6 * 3600:
         return None
     sp = speed_stats(t0, t1, cfg)
     if not s["count"]:
-        title = tr("daily.title.none", lang)
+        title = tr("week.title.none", lang)
     elif s["count"] == 1:
-        title = tr("daily.title.one", lang, d=fmt_dur(s["down_s"], lang))
+        title = tr("week.title.one", lang, d=fmt_dur(s["down_s"], lang))
     else:
-        title = tr("daily.title", lang, n=s["count"], d=fmt_dur(s["down_s"], lang))
-    lines = [tr("daily.avail", lang, p=fmt_pct(s["avail"], lang), mon=fmt_dur(s["mon_s"], lang))]
+        title = tr("week.title", lang, n=s["count"], d=fmt_dur(s["down_s"], lang))
+    lines = [tr("week.avail", lang, p=fmt_pct(s["avail"], lang), mon=fmt_dur(s["mon_s"], lang))]
     if s["count"]:
         isp = s["causes"].get("isp", {"count": 0})["count"]
-        lines.append(tr("daily.outages", lang, isp=isp, d=fmt_dur(s["longest"]["dur"], lang)))
+        lines.append(tr("week.outages", lang, isp=isp, d=fmt_dur(s["longest"]["dur"], lang)))
+        worst = max(s["days"], key=lambda d: (d["down_s"], d["count"]))
+        if worst["count"] and worst["count"] < s["count"]:   # só quando as quedas se espalharam pela semana
+            day = tr("week.days", lang).split(",")[datetime.fromtimestamp(worst["start"]).weekday()]
+            lines.append(tr("week.worst", lang, day=day, n=worst["count"], d=fmt_dur(worst["down_s"], lang)))
     if s["unstable"]["count"]:
-        lines.append(tr("daily.unstable", lang, n=s["unstable"]["count"], d=fmt_dur(s["unstable"]["dur_s"], lang)))
+        lines.append(tr("week.unstable", lang, n=s["unstable"]["count"], d=fmt_dur(s["unstable"]["dur_s"], lang)))
     if sp["count"]:
-        line = tr("daily.speed", lang, down="%.0f" % sp["down"]["avg"], up="%.0f" % (sp["up"]["avg"] if sp["up"] else 0))
+        line = tr("week.speed", lang, down="%.0f" % sp["down"]["avg"], up="%.0f" % (sp["up"]["avg"] if sp["up"] else 0))
         if sp["plan"]["down"]:
-            line += tr("daily.speed_plan", lang, p=fmt_pct(sp["down"]["avg"] / sp["plan"]["down"], lang, 0))
+            line += tr("week.speed_plan", lang, p=fmt_pct(sp["down"]["avg"] / sp["plan"]["down"], lang, 0))
         lines.append(line)
     if s["ip_changes"]:
-        lines.append(tr("daily.ip", lang, n=s["ip_changes"]))
-    lines.append(tr("daily.footer", lang))
+        lines.append(tr("week.ip", lang, n=s["ip_changes"]))
+    lines.append(tr("week.footer", lang))
     return title, "\n".join(lines)
 
 
@@ -1861,7 +1886,7 @@ class Handler(BaseHTTPRequestHandler):
                     "speedtest_minutes": self.cfg["speedtest_minutes"], "speedtest_seconds": self.cfg["speedtest_seconds"],
                     "plan_down_mbps": self.cfg["plan_down_mbps"], "plan_up_mbps": self.cfg["plan_up_mbps"],
                     "unstable": {"window": Stability.WINDOW, "open": Stability.OPEN_AT, "min_slow_ms": Stability.MIN_SLOW_MS},
-                    "speed_choices": SPEED_CHOICES, "daily_summary_hour": self.cfg["daily_summary_hour"],
+                    "speed_choices": SPEED_CHOICES, "weekly_summary_hour": self.cfg["weekly_summary_hour"],
                     "notify_min_seconds": self.cfg["notify_min_seconds"], "language_setting": self.cfg["language"],
                     "notify": self.notifier.stats() if self.notifier.enabled else None,
                 })
